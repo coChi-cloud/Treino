@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<meta name="color-scheme" content="dark">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Treino">
+<meta name="format-detection" content="telephone=no">
+<title>Treino</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{
+  --bg:#0f1115;--card:#171a21;--card2:#222632;--borda:#2e3440;
+  --txt:#eef1f6;--muted:#a3acba;--acc:#a3e635;--acc-txt:#11160a;
+  --ok:#4ade80;--ok-bg:#12301d;--warn:#fbbf24;--warn-bg:#3a2c08;
+  --err:#f87171;--err-bg:#3b1414;--info:#7cb8ff;--info-bg:#132339;
+  --nav-h:64px;--timer-h:0px;--sb:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;background:var(--bg)}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--txt);
+  font:17px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+  padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) 0 env(safe-area-inset-left,0px)}
+main{max-width:640px;margin:0 auto;padding:12px 12px calc(var(--nav-h) + var(--sb) + var(--timer-h) + 28px)}
+h1{font-size:26px;margin:6px 2px 12px}
+h2{font-size:20px;margin:0 0 8px}
+h3{font-size:19px;margin:0}
+p{margin:6px 0}
+.muted{color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--borda);border-radius:16px;padding:14px;margin:0 0 12px}
+.card.destaque{border-color:var(--acc)}
+button{font:inherit;font-size:17px;color:var(--txt);background:var(--card2);border:1px solid var(--borda);
+  border-radius:12px;min-height:48px;padding:10px 16px;display:inline-flex;align-items:center;justify-content:center;
+  gap:8px;cursor:pointer;-webkit-user-select:none;user-select:none;text-align:center}
+button:active{transform:scale(.97);filter:brightness(1.25)}
+button:disabled{opacity:.45}
+.btn-pri{background:var(--acc);border-color:var(--acc);color:var(--acc-txt);font-weight:700}
+.btn-perigo{background:transparent;border-color:var(--err);color:var(--err)}
+.btn-bloco{display:flex;width:100%;margin-top:10px}
+.acoes{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
+.acoes>*{flex:1 1 140px}
+input,textarea,select{font:inherit;font-size:17px;color:var(--txt);background:var(--bg);border:1px solid var(--borda);
+  border-radius:12px;padding:10px 12px;min-height:48px;width:100%}
+input,textarea{-webkit-appearance:none;appearance:none}
+textarea{min-height:140px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:16px;margin-top:6px}
+input[type=date]{min-height:52px}
+input::placeholder,textarea::placeholder{color:#6b7482}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+label.rotulo{display:block;margin-top:12px;color:var(--muted)}
+label.rotulo>input,label.rotulo>textarea,label.rotulo>select{margin-top:6px;color:var(--txt)}
+.linha-check{display:flex;align-items:center;gap:12px;min-height:52px}
+.linha-check input{width:28px;height:28px;min-height:0;accent-color:var(--acc);-webkit-appearance:auto;appearance:auto;flex:none;margin:0}
+details>summary{min-height:48px;display:flex;align-items:center;cursor:pointer;color:var(--info);font-weight:600;list-style:none}
+details>summary::-webkit-details-marker{display:none}
+details>summary::before{content:'▸';margin-right:8px}
+details[open]>summary::before{content:'▾'}
+
+/* topo da tela Hoje */
+.topo{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:4px 2px 10px}
+.titulo{font-size:22px;font-weight:800}
+.chip-semana{border-color:var(--acc);color:var(--acc);font-weight:700;white-space:nowrap}
+.linha-data{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+.linha-data input{flex:1}
+.linha-data button{flex:none}
+.abas,.seg{display:flex;gap:8px;margin-bottom:12px}
+.abas button,.seg button{flex:1;font-weight:700}
+.abas button.ativo,.seg button.ativo{background:var(--acc);border-color:var(--acc);color:var(--acc-txt)}
+.subtitulo{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px 10px;margin:0 2px 10px;color:var(--muted)}
+
+/* avisos */
+.aviso{border-radius:12px;padding:12px 14px;margin:0 0 12px;border:1px solid}
+.aviso.info{background:var(--info-bg);border-color:#24456e}
+.aviso.warn{background:var(--warn-bg);border-color:#7a5a10}
+.aviso.erro{background:var(--err-bg);border-color:#7a2424}
+.aviso.ok{background:var(--ok-bg);border-color:#1f6b3a}
+.aviso ul{margin:6px 0 0;padding-left:20px}
+.aviso li{margin:4px 0}
+.aviso button{margin-top:10px}
+
+/* exercícios */
+.ex-cab{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.meta{color:var(--muted);margin:4px 0 2px}
+.tag{border-radius:999px;padding:2px 10px;font-size:16px;font-weight:700;white-space:nowrap}
+.tag.ok{background:var(--ok-bg);color:var(--ok)}
+.tag.warn{background:var(--warn-bg);color:var(--warn)}
+.ex.concluido{border-color:#1f6b3a}
+.serie{display:grid;grid-template-columns:30px 1fr 1fr 60px;gap:8px;align-items:center;margin-top:8px}
+.serie.cab{margin-top:10px;color:var(--muted);font-size:16px}
+.serie.cab span{text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.serie .sn{text-align:center;font-weight:800;color:var(--muted);font-size:18px}
+.serie input{font-size:24px;font-weight:800;text-align:center;min-height:58px;padding:6px 4px;font-variant-numeric:tabular-nums}
+.serie.proxima input{border-color:var(--acc)}
+.btn-ok{min-height:58px;width:60px;padding:0;font-size:28px;font-weight:900;background:var(--acc);border-color:var(--acc);color:var(--acc-txt)}
+.serie.feita{grid-template-columns:30px 1fr 40px}
+.serie.feita .resumo{justify-content:flex-start;min-height:52px;background:var(--ok-bg);border-color:#1f6b3a;color:var(--ok);font-weight:700;font-size:19px;font-variant-numeric:tabular-nums}
+.serie.feita .check{color:var(--ok);font-size:26px;text-align:center;font-weight:900}
+.corrida-desc{font-size:21px;font-weight:800;margin:8px 0 2px}
+
+/* histórico */
+.hist-ex{padding:10px 0 4px;border-top:1px solid var(--borda);margin-top:10px}
+.hist-nome{font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chip{min-height:44px;padding:6px 12px;font-size:16px;font-variant-numeric:tabular-nums}
+
+/* seletor de semana */
+.stepper{display:grid;grid-template-columns:64px 1fr 64px;gap:10px;align-items:center;margin-top:12px}
+.stepper button{min-height:60px;font-size:28px;font-weight:800;padding:0}
+.stepper .valor{text-align:center;font-size:20px}
+.stepper .valor b{font-size:34px}
+
+/* timer de descanso */
+#timer{position:fixed;left:0;right:0;bottom:calc(var(--nav-h) + var(--sb));z-index:30;background:#1b2130;
+  border-top:2px solid var(--info);padding:10px 14px 12px;display:grid;grid-template-columns:1fr auto auto;gap:6px 12px;align-items:center}
+#timer[hidden]{display:none}
+#timer .t-info{min-width:0}
+#timer .t-rot{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#timer .t-meta{color:var(--muted)}
+#timer .t-tempo{font-size:42px;font-weight:900;font-variant-numeric:tabular-nums;line-height:1}
+#timer .t-parar{min-height:52px}
+#timer .t-barra{grid-column:1/-1;position:relative;height:8px;border-radius:4px;background:#0b0d12;overflow:hidden}
+#timer .t-barra i{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--info)}
+#timer .t-barra b{position:absolute;top:0;bottom:0;width:3px;background:#ffffffaa}
+#timer.pronto{background:#11301e;border-top-color:var(--ok)}
+#timer.pronto .t-barra i{background:var(--ok)}
+#timer.passou{background:#3a2a08;border-top-color:var(--warn)}
+#timer.passou .t-barra i{background:var(--warn)}
+#timer.pisca{animation:pisca .35s ease-in-out 4}
+@keyframes pisca{50%{filter:brightness(2.2)}}
+
+/* navegação inferior */
+#nav{position:fixed;left:0;right:0;bottom:0;z-index:31;display:grid;grid-template-columns:repeat(3,1fr);
+  background:#0a0c10;border-top:1px solid var(--borda);padding-bottom:var(--sb)}
+#nav[hidden]{display:none}
+#nav button{border:0;border-radius:0;background:transparent;min-height:var(--nav-h);color:var(--muted);font-weight:600}
+#nav button.ativo{color:var(--acc);box-shadow:inset 0 3px 0 var(--acc)}
+
+/* toast, banner de atualização, diálogo */
+#toast{position:fixed;left:12px;right:12px;top:calc(env(safe-area-inset-top,0px) + 10px);z-index:50;max-width:616px;margin:0 auto;
+  padding:12px 16px;border-radius:12px;background:#2a3140;color:var(--txt);box-shadow:0 8px 30px #0008;
+  opacity:0;transform:translateY(-10px);transition:opacity .2s,transform .2s;pointer-events:none}
+#toast.vis{opacity:1;transform:none}
+#toast.erro{background:#5a1a1a}
+#banner-update{position:sticky;top:0;z-index:40;background:var(--info-bg);border-bottom:1px solid #24456e;
+  padding:10px 14px;display:flex;gap:10px;align-items:center;justify-content:space-between}
+#banner-update[hidden]{display:none}
+dialog{background:var(--card);color:var(--txt);border:1px solid var(--borda);border-radius:18px;padding:16px;
+  width:min(94vw,480px);max-height:90vh;overflow:auto}
+dialog::backdrop{background:#000a}
+</style>
+</head>
+<body>
+<div id="banner-update" hidden>
+  <span>Nova versão do app pronta.</span>
+  <button type="button" class="btn-pri" id="btn-atualizar">Atualizar</button>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+<main id="main"></main>
+<div id="timer" hidden>
+  <div class="t-info"><div class="t-rot"></div><div class="t-meta"></div></div>
+  <div class="t-tempo">0:00</div>
+  <button type="button" class="t-parar">Parar</button>
+  <div class="t-barra"><i></i><b></b></div>
+</div>
+<nav id="nav" hidden>
+  <button type="button" data-aba="hoje">Hoje</button>
+  <button type="button" data-aba="historico">Histórico</button>
+  <button type="button" data-aba="ajustes">Ajustes</button>
+</nav>
+<dialog id="dlg"></dialog>
+
+<script>
+'use strict';
+
+/* ==========================================================================
+   CONFIGURAÇÃO GERAL
+   ========================================================================== */
+const APP_ID = 'treino-pwa';
+const APP_VERSAO = '1.0.0 (fase 1)';
+const CHAVES = {
+  plano: 'treino.plano.v1',
+  config: 'treino.config.v1',
+  registros: 'treino.registros.v1',
+  timer: 'treino.timer.v1'
+};
+const DIAS_AVISO_BACKUP = 14;
+
+/* ==========================================================================
+   UTILIDADES (datas, números, DOM)
+   Datas internas em ISO local: "AAAA-MM-DD"; data-hora com fuso: "2026-11-14T10:49:22-03:00".
+   ========================================================================== */
+const pad2 = n => String(n).padStart(2, '0');
+const RE_DATA = /^\d{4}-\d{2}-\d{2}$/;
+const NOMES_DIA = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+const NOMES_DIA_CURTO = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+const ehInt = v => Number.isInteger(v);
+const ehNum = v => typeof v === 'number' && Number.isFinite(v);
+const limitar = (v, a, b) => Math.min(b, Math.max(a, v));
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+const $ = (s, r = document) => r.querySelector(s);
+
+// Data local (não usar toISOString: ele converte para UTC e vira o dia seguinte à noite)
+function dataISO(d = new Date()) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
+function hoje() { return dataISO(new Date()); }
+function partes(iso) { return iso.slice(0, 10).split('-').map(Number); }
+function diasEntre(a, b) { // b − a, em dias
+  const [ya, ma, da] = partes(a), [yb, mb, db] = partes(b);
+  return Math.round((Date.UTC(yb, mb - 1, db) - Date.UTC(ya, ma - 1, da)) / 86400000);
+}
+function somarDias(iso, n) {
+  const [y, m, d] = partes(iso);
+  const t = new Date(Date.UTC(y, m - 1, d + n));
+  return `${t.getUTCFullYear()}-${pad2(t.getUTCMonth() + 1)}-${pad2(t.getUTCDate())}`;
+}
+function diaDaSemana(iso) { const [y, m, d] = partes(iso); return new Date(Date.UTC(y, m - 1, d)).getUTCDay(); }
+function fmtData(iso) { if (!iso) return '—'; const [y, m, d] = partes(iso); return `${pad2(d)}/${pad2(m)}/${y}`; }
+function dataHoraLocal(d = new Date()) {
+  const off = -d.getTimezoneOffset(), s = off >= 0 ? '+' : '-', a = Math.abs(off);
+  return `${dataISO(d)}T${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}${s}${pad2(Math.floor(a / 60))}:${pad2(a % 60)}`;
+}
+function semAcento(s) { return String(s).normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+function idxDiaSemana(nome) { // "sabado", "Sábado", "segunda-feira" → 0..6; inválido → -1
+  if (typeof nome !== 'string') return -1;
+  const n = semAcento(nome).toLowerCase().trim().replace(/[-\s]feira$/, '');
+  return ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'].indexOf(n);
+}
+function fmtSeg(s) { s = Math.max(0, Math.floor(s)); return `${Math.floor(s / 60)}:${pad2(s % 60)}`; }
+function fmtFaixa(f, fmt = String) { return f[0] === f[1] ? fmt(f[0]) : `${fmt(f[0])}–${fmt(f[1])}`; }
+function fmtKg(n) { return String(Math.round(n * 100) / 100).replace('.', ','); }
+function fmtMin(n) { return `${String(n).replace('.', ',')} min`; }
+function lerNumero(txt) { // aceita vírgula; vazio → null; inválido → NaN
+  const t = String(txt ?? '').trim().replace(',', '.');
+  if (t === '') return null;
+  return /^\d+(\.\d+)?$/.test(t) ? Number(t) : NaN;
+}
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function agrupar(lista, chave) { // → [[chave, itens], ...] na ordem de aparição
+  const m = new Map();
+  for (const it of lista) { const k = chave(it); if (!m.has(k)) m.set(k, []); m.get(k).push(it); }
+  return [...m.entries()];
+}
+
+// Cria elementos sem innerHTML (textos do JSON nunca viram HTML)
+function h(tag, props, ...filhos) {
+  const el = document.createElement(tag);
+  for (const f of filhos.flat(Infinity)) {
+    if (f == null || f === false || f === true) continue;
+    el.append(f instanceof Node ? f : String(f));
+  }
+  if (props) for (const [k, v] of Object.entries(props)) {
+    if (v == null || v === false) continue;
+    if (k === 'class') el.className = v;
+    else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
+    else if (k === 'value') el.value = v;
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  return el;
+}
+
+let toastTimer = null;
+function toast(msg, tipo = '', ms = 2600) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.className = 'vis' + (tipo ? ' ' + tipo : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = tipo; }, ms);
+}
+
+/* ==========================================================================
+   DADOS (localStorage com try/catch)
+   ========================================================================== */
+const UI = {
+  aba: 'hoje', data: hoje(), dataManual: false, diaId: null,
+  rascunhos: {},            // valores digitados e ainda não confirmados, por série
+  histModo: 'data', histEx: null,
+  avisosImport: null, planoInvalido: null, erroGravacao: false,
+  persistido: undefined, swReg: null, swEsperando: null, atualizando: false,
+  secaoAlvo: null
+};
+
+const Armaz = {
+  disponivel: (() => { try { localStorage.setItem('__t', '1'); localStorage.removeItem('__t'); return true; } catch { return false; } })(),
+  ler(chave, padrao) {
+    try { const s = localStorage.getItem(chave); return s == null ? padrao : JSON.parse(s); }
+    catch (e) { console.warn('leitura', chave, e); return padrao; }
+  },
+  gravar(chave, valor) {
+    try { localStorage.setItem(chave, JSON.stringify(valor)); return true; }
+    catch (e) { console.error('gravação', chave, e); falhaGravacao(); return false; }
+  },
+  apagar(chave) { try { localStorage.removeItem(chave); } catch { /* nada */ } }
+};
+
+const CONFIG_PADRAO = {
+  data_inicio: null,       // ISO; base da sugestão de semana
+  ajuste_semana: 0,        // deslocamento manual em relação à sugestão (ex.: −1 ao repetir uma semana)
+  inicio_adiado: false,
+  ultimo_export: null,
+  criado_em: null,
+  plano_importado_em: null,
+  som: true,
+  vibracao: true
+};
+
+const S = {
+  plano: Armaz.ler(CHAVES.plano, null),
+  config: Object.assign({}, CONFIG_PADRAO, Armaz.ler(CHAVES.config, {}) || {}),
+  registros: Armaz.ler(CHAVES.registros, [])
+};
+if (!Array.isArray(S.registros)) S.registros = [];
+
+const salvarPlano = () => Armaz.gravar(CHAVES.plano, S.plano);
+const salvarConfig = () => Armaz.gravar(CHAVES.config, S.config);
+const salvarRegistros = () => Armaz.gravar(CHAVES.registros, S.registros);
+
+function falhaGravacao() {
+  UI.erroGravacao = true;
+  toast('ERRO: o aparelho não deixou salvar. Exporte o backup agora.', 'erro', 7000);
+}
+
+async function pedirPersistencia() {
+  try {
+    if (!navigator.storage?.persist) { UI.persistido = null; return; }
+    UI.persistido = (await navigator.storage.persisted()) || (await navigator.storage.persist());
+  } catch { UI.persistido = null; }
+}
+
+/* ==========================================================================
+   PLANO (importação e validação do treino.json — o treino nunca fica no código)
+   ========================================================================== */
+const TIPOS_EXERCICIO = ['aquecimento', 'forca', 'tempo', 'corrida'];
+
+function faixaValida(f, inteiro, minimo) {
+  return Array.isArray(f) && f.length === 2 &&
+    f.every(v => (inteiro ? ehInt(v) : ehNum(v)) && v >= minimo) && f[0] <= f[1];
+}
+
+// Total calculado pela conta, ignorando total_min do arquivo: repetições × (correr + andar)
+function totalCorridaMin(s) {
+  return s.modo === 'continuo' ? s.correr_min : s.repeticoes * (s.correr_min + s.andar_min);
+}
+
+function validarPlano(p) {
+  const erros = [], avisos = [];
+  const erro = (onde, msg) => erros.push(onde ? `${onde}: ${msg}` : msg);
+
+  if (!p || typeof p !== 'object' || Array.isArray(p)) {
+    erro('', 'o conteúdo não é um objeto JSON ({ ... }).');
+    return { erros, avisos };
+  }
+  if (p.app === APP_ID) {
+    erro('', 'este arquivo é um BACKUP do app, não um plano. Use "Restaurar backup".');
+    return { erros, avisos };
+  }
+  if (p.versao != null && p.versao !== 1) avisos.push(`"versao" é ${JSON.stringify(p.versao)}; o app foi feito para a versão 1.`);
+  if (typeof p.nome !== 'string' || !p.nome.trim()) erro('nome', 'falta o nome do plano (texto).');
+  if (!ehInt(p.semanas) || p.semanas < 1) erro('semanas', 'deve ser um número inteiro maior que zero.');
+
+  const refsCorrida = new Set();
+  if (!Array.isArray(p.dias) || p.dias.length === 0) {
+    erro('dias', 'deve ser uma lista com pelo menos um dia.');
+  } else {
+    const idsDia = new Set();
+    p.dias.forEach((d, i) => {
+      let onde = `dias[${i}]`;
+      if (!d || typeof d !== 'object' || Array.isArray(d)) return erro(onde, 'deve ser um objeto.');
+      if (typeof d.nome === 'string' && d.nome.trim()) onde += ` ("${d.nome}")`; else erro(onde, 'falta "nome".');
+      if (typeof d.id !== 'string' || !d.id.trim()) erro(onde, 'falta "id" (texto, ex.: "A").');
+      else if (idsDia.has(d.id)) erro(onde, `"id" repetido: "${d.id}".`);
+      else idsDia.add(d.id);
+      if (idxDiaSemana(d.dia_semana) < 0) erro(onde, `"dia_semana" inválido (${JSON.stringify(d.dia_semana)}). Use domingo, segunda, terca, quarta, quinta, sexta ou sabado.`);
+      if (d.local != null && typeof d.local !== 'string') erro(onde, '"local" deve ser texto.');
+      if (!Array.isArray(d.exercicios) || d.exercicios.length === 0) return erro(onde, '"exercicios" deve ser uma lista com pelo menos um exercício.');
+
+      const idsEx = new Set();
+      d.exercicios.forEach((x, j) => {
+        let o = `${onde} › exercicios[${j}]`;
+        if (!x || typeof x !== 'object' || Array.isArray(x)) return erro(o, 'deve ser um objeto.');
+        if (typeof x.nome === 'string' && x.nome.trim()) o += ` ("${x.nome}")`; else erro(o, 'falta "nome".');
+        if (typeof x.id !== 'string' || !x.id.trim()) erro(o, 'falta "id".');
+        else if (idsEx.has(x.id)) erro(o, `"id" repetido no mesmo dia: "${x.id}".`);
+        else idsEx.add(x.id);
+        if (!TIPOS_EXERCICIO.includes(x.tipo)) return erro(o, `"tipo" inválido (${JSON.stringify(x.tipo)}). Use: ${TIPOS_EXERCICIO.join(', ')}.`);
+
+        const series = () => { if (!ehInt(x.series) || x.series < 1) erro(o, '"series" deve ser um número inteiro ≥ 1.'); };
+        const descanso = () => { if (!faixaValida(x.descanso_s, false, 0)) erro(o, '"descanso_s" deve ser uma faixa [mín, máx] em segundos, ex.: [90, 120].'); };
+        switch (x.tipo) {
+          case 'aquecimento':
+            if (!ehNum(x.duracao_min) || x.duracao_min <= 0) erro(o, '"duracao_min" deve ser um número maior que zero.');
+            break;
+          case 'forca':
+            series();
+            if (!faixaValida(x.reps, true, 1)) erro(o, '"reps" deve ser uma faixa [mín, máx] de inteiros, ex.: [8, 10].');
+            if (x.por_perna != null && typeof x.por_perna !== 'boolean') erro(o, '"por_perna" deve ser true ou false.');
+            descanso();
+            break;
+          case 'tempo':
+            series();
+            if (!faixaValida(x.duracao_s, false, 1)) erro(o, '"duracao_s" deve ser uma faixa [mín, máx] em segundos, ex.: [30, 40].');
+            descanso();
+            break;
+          case 'corrida': {
+            const ref = x.ref ?? 'corrida';
+            if (typeof ref !== 'string' || !ref) erro(o, '"ref" deve ser texto.');
+            else refsCorrida.add(ref);
+            break;
+          }
+        }
+      });
+    });
+  }
+  for (const ref of refsCorrida) validarCorrida(p[ref], ref, p.semanas, erro, avisos);
+  return { erros, avisos };
+}
+
+function validarCorrida(c, ref, semanasPlano, erro, avisos) {
+  const onde = `"${ref}"`;
+  if (!c || typeof c !== 'object' || Array.isArray(c)) return erro(onde, `um exercício de corrida aponta para "${ref}", mas esse bloco não existe no arquivo.`);
+  if (c.intensidade != null && typeof c.intensidade !== 'string') erro(onde, '"intensidade" deve ser texto.');
+  if (c.regras != null && !Array.isArray(c.regras)) erro(onde, '"regras" deve ser uma lista de textos.');
+  if (!Array.isArray(c.semanas) || c.semanas.length === 0) return erro(onde, '"semanas" deve ser uma lista com pelo menos uma semana.');
+
+  const vistas = new Set(), divergencias = [];
+  c.semanas.forEach((s, i) => {
+    const o = `${onde} › semanas[${i}]`;
+    if (!s || typeof s !== 'object' || Array.isArray(s)) return erro(o, 'deve ser um objeto.');
+    if (!ehInt(s.semana) || s.semana < 1) return erro(o, '"semana" deve ser um número inteiro ≥ 1.');
+    if (vistas.has(s.semana)) erro(o, `semana ${s.semana} repetida.`);
+    vistas.add(s.semana);
+    if (!['intervalado', 'continuo'].includes(s.modo)) return erro(o, '"modo" deve ser "intervalado" ou "continuo".');
+    let ok = true;
+    if (!ehNum(s.correr_min) || s.correr_min <= 0) { erro(o, '"correr_min" deve ser um número maior que zero.'); ok = false; }
+    if (s.modo === 'intervalado') {
+      if (!ehNum(s.andar_min) || s.andar_min < 0) { erro(o, '"andar_min" deve ser um número ≥ 0.'); ok = false; }
+      if (!ehInt(s.repeticoes) || s.repeticoes < 1) { erro(o, '"repeticoes" deve ser um número inteiro ≥ 1.'); ok = false; }
+    }
+    if (s.alivio != null && typeof s.alivio !== 'boolean') erro(o, '"alivio" deve ser true ou false.');
+    if (s.registrar != null && !Array.isArray(s.registrar)) erro(o, '"registrar" deve ser uma lista.');
+    if (ok && ehNum(s.total_min)) {
+      const calc = totalCorridaMin(s);
+      if (Math.abs(calc - s.total_min) > 0.01) divergencias.push(`semana ${s.semana}: arquivo diz ${s.total_min} min, a conta dá ${calc} min`);
+    }
+  });
+  if (divergencias.length) avisos.push(`"total_min" é ignorado; o app usa (correr + andar) × repetições. Divergências: ${divergencias.join('; ')}.`);
+  if (ehInt(semanasPlano)) {
+    const faltam = [];
+    for (let k = 1; k <= semanasPlano; k++) if (!vistas.has(k)) faltam.push(k);
+    if (faltam.length) avisos.push(`A corrida não tem as semanas ${faltam.join(', ')} do plano.`);
+  }
+}
+
+function lerJSON(texto) {
+  texto = String(texto ?? '').replace(/^﻿/, '').trim();
+  if (!texto) return { erro: 'Nada para importar: o texto está vazio.' };
+  try { return { obj: JSON.parse(texto) }; }
+  catch (e) {
+    let msg = 'O texto não é um JSON válido';
+    const m = /position (\d+)/i.exec(e.message), m2 = /line (\d+) column (\d+)/i.exec(e.message);
+    if (m) {
+      const pos = Number(m[1]), antes = texto.slice(0, pos);
+      msg += ` (linha ${antes.split('\n').length}, coluna ${pos - antes.lastIndexOf('\n')})`;
+    } else if (m2) msg += ` (linha ${m2[1]}, coluna ${m2[2]})`;
+    msg += '.';
+    if (/[“”]/.test(texto)) msg += ' Há aspas curvas (“ ”) no texto: o JSON precisa de aspas retas (").';
+    return { erro: `${msg} Detalhe técnico: ${e.message}` };
+  }
+}
+
+function importarPlano(p, saida) {
+  const { erros, avisos } = validarPlano(p);
+  if (erros.length) return mostrarErros(saida, `O plano não foi importado (${erros.length} problema${erros.length > 1 ? 's' : ''}):`, erros);
+  if (S.plano && !confirm(`Substituir o plano atual por "${p.nome}"?\n\nSeus registros são mantidos.`)) return;
+
+  const ids = new Set();
+  for (const d of p.dias) for (const x of d.exercicios) ids.add(x.id);
+  const orfaos = [...new Set(S.registros.map(r => r.exercicio))].filter(id => !ids.has(id));
+  if (orfaos.length) avisos.push(`Há registros de exercícios que não estão neste plano (${orfaos.join(', ')}). Eles continuam no histórico.`);
+
+  S.plano = p;
+  salvarPlano();
+  const agora = dataHoraLocal();
+  S.config.plano_importado_em = agora;
+  if (!S.config.criado_em) S.config.criado_em = agora;
+  salvarConfig();
+  UI.planoInvalido = null;
+  UI.avisosImport = avisos.length ? avisos : null;
+  UI.diaId = diaPadrao(UI.data);
+  toast('Plano importado ✓');
+  irPara('hoje');
+}
+
+const diasDoPlano = () => S.plano?.dias ?? [];
+const diaPorId = id => diasDoPlano().find(d => d.id === id);
+function exerciciosRegistraveis() { // força e tempo, por id, na ordem do plano
+  const m = new Map();
+  for (const d of diasDoPlano()) for (const x of d.exercicios)
+    if ((x.tipo === 'forca' || x.tipo === 'tempo') && !m.has(x.id)) m.set(x.id, x);
+  return m;
+}
+const nomeExercicio = id => exerciciosRegistraveis().get(id)?.nome ?? id;
+
+/* ==========================================================================
+   SEMANA (sugestão pela data de início + ajuste manual)
+   Semana sugerida = dias desde o início ÷ 7 + 1. O ajuste manual é guardado como
+   deslocamento: se você repete uma semana (−1), o app continua contando a partir dali.
+   ========================================================================== */
+const totalSemanas = () => S.plano?.semanas ?? 12;
+function semanaPelaData(data) {
+  if (!S.config.data_inicio) return null;
+  return Math.floor(diasEntre(S.config.data_inicio, data) / 7) + 1;
+}
+const baseSemana = data => limitar(semanaPelaData(data) ?? 1, 1, totalSemanas());
+const semanaEm = data => limitar(baseSemana(data) + (S.config.ajuste_semana || 0), 1, totalSemanas());
+function definirSemana(alvo) {
+  alvo = limitar(alvo, 1, totalSemanas());
+  S.config.ajuste_semana = alvo - baseSemana(hoje());
+  salvarConfig();
+}
+function definirInicio(iso) {
+  S.config.data_inicio = iso || null;
+  S.config.ajuste_semana = 0;
+  S.config.inicio_adiado = false;
+  salvarConfig();
+}
+function proximaData(idxDia, aPartirDe) { return somarDias(aPartirDe, (idxDia - diaDaSemana(aPartirDe) + 7) % 7); }
+
+/* ==========================================================================
+   TREINO (tela "Hoje" e registro por série)
+   ========================================================================== */
+function diaPadrao(data) { // o dia do plano que cai nessa data; senão, o próximo
+  const dias = diasDoPlano();
+  if (!dias.length) return null;
+  const dw = diaDaSemana(data);
+  let melhor = dias[0], menor = 99;
+  for (const d of dias) {
+    const dist = (idxDiaSemana(d.dia_semana) - dw + 7) % 7;
+    if (dist < menor) { menor = dist; melhor = d; }
+  }
+  return melhor.id;
+}
+
+function viewHoje() {
+  const dia = diaPorId(UI.diaId) || diaPorId(diaPadrao(UI.data));
+  UI.diaId = dia.id;
+  const data = UI.data, semana = semanaEm(data), ehHoje = data === hoje();
+  const dwData = diaDaSemana(data), dwDia = idxDiaSemana(dia.dia_semana);
+  const els = [];
+
+  els.push(h('div', { class: 'topo' },
+    h('div', null,
+      h('div', { class: 'titulo' }, `${cap(NOMES_DIA[dwData])}, ${fmtData(data).slice(0, 5)}`),
+      h('div', { class: 'muted' }, ehHoje ? 'hoje' : 'outra data')),
+    h('button', { type: 'button', class: 'chip-semana', onclick: () => irPara('ajustes', 'sec-semana') }, `Semana ${semana} de ${totalSemanas()}`)));
+
+  const inData = h('input', { type: 'date', value: data, 'aria-label': 'Data do treino' });
+  inData.addEventListener('change', () => {
+    if (!RE_DATA.test(inData.value)) { inData.value = UI.data; return; }
+    UI.data = inData.value; UI.dataManual = UI.data !== hoje(); UI.diaId = diaPadrao(UI.data); render();
+  });
+  els.push(h('div', { class: 'linha-data' }, inData,
+    !ehHoje && h('button', { type: 'button', onclick: () => { UI.data = hoje(); UI.dataManual = false; UI.diaId = diaPadrao(UI.data); render(); } }, 'Hoje')));
+
+  els.push(h('div', { class: 'abas', role: 'tablist' }, diasDoPlano().map(d =>
+    h('button', { type: 'button', role: 'tab', class: d.id === dia.id ? 'ativo' : '', 'aria-selected': String(d.id === dia.id),
+      onclick: () => { UI.diaId = d.id; render(); } },
+      `${d.id} · ${NOMES_DIA_CURTO[idxDiaSemana(d.dia_semana)]}`))));
+
+  // Avisos
+  if (UI.erroGravacao) els.push(h('div', { class: 'aviso erro' }, h('b', null, 'O aparelho recusou salvar dados. '), 'Exporte o backup em Ajustes antes de fechar o app.'));
+  if (UI.avisosImport) els.push(h('div', { class: 'aviso warn' }, h('b', null, 'Plano importado, com avisos:'),
+    h('ul', null, UI.avisosImport.map(a => h('li', null, a))),
+    h('button', { type: 'button', onclick: () => { UI.avisosImport = null; render(); } }, 'Entendi')));
+  if (!S.config.data_inicio && !S.config.inicio_adiado) els.push(cardInicio());
+  const aviso = avisoBackup();
+  if (aviso) els.push(aviso);
+  const sPela = semanaPelaData(data);
+  if (sPela != null && sPela < 1) els.push(h('div', { class: 'aviso info' }, `O plano começa em ${fmtData(S.config.data_inicio)}. Registros antes disso contam como semana 1.`));
+  if (sPela != null && sPela > totalSemanas()) els.push(h('div', { class: 'aviso info' }, `As ${totalSemanas()} semanas do plano já passaram; a semana fica travada em ${totalSemanas()}.`));
+  if (dwDia !== dwData) els.push(h('div', { class: 'aviso info' }, `${dia.nome} é de ${NOMES_DIA[dwDia]} e a data escolhida é ${NOMES_DIA[dwData]}. Dá para registrar mesmo assim.`));
+
+  // Progresso
+  const sessao = S.registros.filter(r => r.data === data && r.dia === dia.id);
+  let previstas = 0, feitas = 0;
+  for (const x of dia.exercicios) if (x.tipo === 'forca' || x.tipo === 'tempo') {
+    previstas += x.series;
+    feitas += new Set(sessao.filter(r => r.exercicio === x.id && r.serie <= x.series).map(r => r.serie)).size;
+  }
+  els.push(h('div', { class: 'subtitulo' },
+    h('span', null, `${dia.nome}${dia.local ? ' · ' + dia.local : ''}`),
+    previstas > 0 && h('span', null, `${feitas}/${previstas} séries`)));
+
+  for (const x of dia.exercicios) {
+    if (x.tipo === 'forca' || x.tipo === 'tempo') els.push(cardExercicio(x, dia, data, semana));
+    else if (x.tipo === 'aquecimento') els.push(h('section', { class: 'card ex' },
+      h('div', { class: 'ex-cab' }, h('h3', null, x.nome), h('span', { class: 'muted' }, fmtMin(x.duracao_min)))));
+    else if (x.tipo === 'corrida') els.push(cardCorrida(x, semana));
+  }
+  if (previstas > 0 && feitas >= previstas) els.push(h('div', { class: 'aviso ok' }, h('b', null, 'Treino completo ✓ '), 'Todas as séries registradas.'));
+  return els;
+}
+
+function cardInicio() {
+  const sugerida = proximaData(idxDiaSemana(diasDoPlano()[0].dia_semana), hoje());
+  const inp = h('input', { type: 'date', value: sugerida, 'aria-label': 'Data de início do plano' });
+  return h('section', { class: 'card destaque' },
+    h('h2', null, 'Quando começa o plano?'),
+    h('p', { class: 'muted' }, 'Com a data de início o app sugere a semana sozinho. Dá para mudar depois em Ajustes.'),
+    inp,
+    h('div', { class: 'acoes' },
+      h('button', { type: 'button', class: 'btn-pri', onclick: () => {
+        if (!RE_DATA.test(inp.value)) return toast('Escolha uma data.', 'erro');
+        definirInicio(inp.value); toast(`Início do plano: ${fmtData(inp.value)}`); render();
+      } }, 'Confirmar'),
+      h('button', { type: 'button', onclick: () => { S.config.inicio_adiado = true; salvarConfig(); render(); } }, 'Agora não')));
+}
+
+function cardExercicio(x, dia, data, semana) {
+  const regs = S.registros.filter(r => r.data === data && r.dia === dia.id && r.exercicio === x.id);
+  const nLinhas = Math.max(x.series, ...regs.map(r => r.serie));
+  const ehTempo = x.tipo === 'tempo';
+  const feitasNoPlano = new Set(regs.filter(r => r.serie <= x.series).map(r => r.serie)).size;
+  const concluido = feitasNoPlano >= x.series;
+  const meta = ehTempo
+    ? `${x.series} × ${fmtFaixa(x.duracao_s)} s`
+    : `${x.series} × ${fmtFaixa(x.reps)} reps${x.por_perna ? ' por perna' : ''}`;
+
+  const card = h('section', { class: 'card ex' + (concluido ? ' concluido' : '') },
+    h('div', { class: 'ex-cab' }, h('h3', null, x.nome), concluido && h('span', { class: 'tag ok' }, 'feito')),
+    h('p', { class: 'meta' }, `${meta} · descanso ${fmtFaixa(x.descanso_s, fmtSeg)}`));
+  if (!concluido) card.append(h('div', { class: 'serie cab', 'aria-hidden': 'true' },
+    h('span', null, '#'), h('span', null, ehTempo ? 'seg' : (x.por_perna ? 'reps/perna' : 'reps')),
+    h('span', null, ehTempo ? 'kg (opc.)' : 'kg'), h('span')));
+
+  let destacou = false;
+  for (let n = 1; n <= nLinhas; n++) {
+    const r = regs.find(o => o.serie === n);
+    if (r) card.append(linhaFeita(r));
+    else if (n <= x.series) { card.append(linhaPendente(x, dia, data, semana, n, !destacou)); destacou = true; }
+  }
+  return card;
+}
+
+// Pré-preenchimento: reps/segundos da mesma série na última sessão;
+// carga da série anterior de hoje (se já registrada) ou da última sessão.
+function prefill(x, dia, data, n) {
+  const campo = x.tipo === 'tempo' ? 'duracao_s' : 'reps';
+  const doEx = S.registros.filter(r => r.exercicio === x.id);
+  const deHoje = doEx.filter(r => r.data === data && r.dia === dia.id && r.serie < n).sort((a, b) => a.serie - b.serie);
+  const antes = doEx.filter(r => r.data < data);
+  let ultima = null;
+  if (antes.length) {
+    const dUlt = antes.reduce((m, r) => (r.data > m ? r.data : m), '');
+    const sess = antes.filter(r => r.data === dUlt).sort((a, b) => a.serie - b.serie);
+    ultima = sess.find(r => r.serie === n) || sess[sess.length - 1];
+  }
+  const anteriorHoje = deHoje[deHoje.length - 1];
+  const a = ultima?.[campo] ?? anteriorHoje?.[campo];
+  const kg = anteriorHoje ? anteriorHoje.carga_kg : ultima?.carga_kg;
+  return { a: a == null ? '' : String(a), b: kg == null ? '' : fmtKg(kg) };
+}
+
+function linhaPendente(x, dia, data, semana, n, destaque) {
+  const chave = `${data}|${dia.id}|${x.id}|${n}`;
+  const rasc = UI.rascunhos[chave] || prefill(x, dia, data, n);
+  const ehTempo = x.tipo === 'tempo';
+  const inA = h('input', { type: 'text', inputmode: 'numeric', pattern: '[0-9]*', enterkeyhint: 'next', autocomplete: 'off',
+    placeholder: ehTempo ? fmtFaixa(x.duracao_s) : fmtFaixa(x.reps), value: rasc.a,
+    'aria-label': `Série ${n}: ${ehTempo ? 'segundos' : 'repetições'}` });
+  const inB = h('input', { type: 'text', inputmode: 'decimal', enterkeyhint: 'done', autocomplete: 'off',
+    placeholder: '—', value: rasc.b, 'aria-label': `Série ${n}: carga em kg` });
+  const guardar = () => { UI.rascunhos[chave] = { a: inA.value, b: inB.value }; };
+  for (const i of [inA, inB]) {
+    i.addEventListener('input', guardar);
+    i.addEventListener('focus', () => setTimeout(() => { try { i.select(); } catch { /* nada */ } }, 0));
+  }
+  inA.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); inB.focus(); } });
+  inB.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); inB.blur(); } });
+  const ok = h('button', { type: 'button', class: 'btn-ok', 'aria-label': `Concluir série ${n}`,
+    onclick: () => concluirSerie(x, dia, data, semana, n, inA.value, inB.value, chave) }, '✓');
+  return h('div', { class: 'serie' + (destaque ? ' proxima' : '') }, h('span', { class: 'sn' }, n), inA, inB, ok);
+}
+
+function linhaFeita(r) {
+  return h('div', { class: 'serie feita' },
+    h('span', { class: 'sn' }, r.serie),
+    h('button', { type: 'button', class: 'resumo', onclick: () => abrirEdicao(r.id), 'aria-label': `Série ${r.serie}: ${textoSerie(r)}. Toque para editar` }, textoSerie(r)),
+    h('span', { class: 'check', 'aria-hidden': 'true' }, '✓'));
+}
+
+function textoSerie(r) {
+  const kg = r.carga_kg != null ? `${fmtKg(r.carga_kg)} kg` : null;
+  if (r.duracao_s != null) return kg ? `${kg} · ${r.duracao_s} s` : `${r.duracao_s} s`;
+  return kg ? `${kg} × ${r.reps}` : `${r.reps} reps`;
+}
+
+function validarValores(ehTempo, txtA, txtB) {
+  const a = lerNumero(txtA);
+  if (a == null || !Number.isInteger(a) || a < 1 || a > 9999)
+    return { erro: ehTempo ? 'Informe os segundos (número inteiro).' : 'Informe as repetições (número inteiro).' };
+  const kg = lerNumero(txtB);
+  if (Number.isNaN(kg) || (kg != null && kg > 1000)) return { erro: 'Carga inválida. Use só números, ex.: 42,5' };
+  return { a, kg };
+}
+
+function concluirSerie(x, dia, data, semana, n, txtA, txtB, chave) {
+  Som.desbloquear(); // o toque libera o áudio no iPhone
+  const ehTempo = x.tipo === 'tempo';
+  const v = validarValores(ehTempo, txtA, txtB);
+  if (v.erro) return toast(v.erro, 'erro');
+
+  // Mesmo formato de registro_exemplo + id, tipo e registrado_em
+  const r = { data, semana, dia: dia.id, exercicio: x.id, serie: n };
+  if (ehTempo) { r.duracao_s = v.a; if (v.kg != null) r.carga_kg = v.kg; }
+  else { r.reps = v.a; r.carga_kg = v.kg; } // carga null = sem carga (peso do corpo)
+  Object.assign(r, { obs: '', id: uid(), tipo: x.tipo, registrado_em: dataHoraLocal() });
+
+  S.registros = S.registros.filter(o => !(o.data === data && o.dia === dia.id && o.exercicio === x.id && o.serie === n));
+  S.registros.push(r);
+  salvarRegistros();
+  delete UI.rascunhos[chave];
+  document.activeElement?.blur?.();
+  Timer.iniciar(x.descanso_s, `${x.nome} ${n}/${x.series}`);
+  render();
+}
+
+function abrirEdicao(id) {
+  const r = S.registros.find(o => o.id === id);
+  if (!r) return;
+  const dlg = $('#dlg');
+  const ehTempo = r.duracao_s != null;
+  const inA = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', value: String(ehTempo ? r.duracao_s : r.reps) });
+  const inB = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: 'sem carga', value: r.carga_kg != null ? fmtKg(r.carga_kg) : '' });
+  const inObs = h('textarea', { rows: '2', placeholder: 'opcional', value: r.obs || '' });
+  inObs.style.fontFamily = 'inherit'; inObs.style.minHeight = '80px';
+  const fechar = () => (dlg.close ? dlg.close() : dlg.removeAttribute('open'));
+  const salvar = () => {
+    const v = validarValores(ehTempo, inA.value, inB.value);
+    if (v.erro) return toast(v.erro, 'erro');
+    if (ehTempo) { r.duracao_s = v.a; if (v.kg != null) r.carga_kg = v.kg; else delete r.carga_kg; }
+    else { r.reps = v.a; r.carga_kg = v.kg; }
+    r.obs = inObs.value.trim();
+    r.editado_em = dataHoraLocal();
+    salvarRegistros(); fechar(); toast('Série atualizada'); render();
+  };
+  const excluir = () => {
+    if (!confirm('Excluir esta série?')) return;
+    S.registros = S.registros.filter(o => o.id !== r.id);
+    salvarRegistros(); fechar(); toast('Série excluída'); render();
+  };
+  dlg.replaceChildren(h('form', { method: 'dialog', onsubmit: e => e.preventDefault() },
+    h('h2', null, `${nomeExercicio(r.exercicio)} · série ${r.serie}`),
+    h('p', { class: 'muted' }, `${fmtData(r.data)} · ${diaPorId(r.dia)?.nome ?? 'Dia ' + r.dia} · semana ${r.semana}`),
+    h('label', { class: 'rotulo' }, ehTempo ? 'Segundos' : 'Repetições', inA),
+    h('label', { class: 'rotulo' }, 'Carga (kg)', inB),
+    h('label', { class: 'rotulo' }, 'Observação', inObs),
+    h('div', { class: 'acoes' },
+      h('button', { type: 'button', class: 'btn-pri', onclick: salvar }, 'Salvar'),
+      h('button', { type: 'button', onclick: fechar }, 'Cancelar')),
+    h('button', { type: 'button', class: 'btn-perigo btn-bloco', onclick: excluir }, 'Excluir série')));
+  if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
+}
+
+/* ==========================================================================
+   PROGRESSÃO — fase 2 (última sessão ao lado da série, dupla progressão, esforço e dor)
+   ========================================================================== */
+
+/* ==========================================================================
+   TIMER DE DESCANSO (som, vibração, tela acesa)
+   Usa o relógio do sistema (Date.now), não contagem de ticks: se o celular
+   pausar o app, ao voltar o tempo mostrado continua certo.
+   ========================================================================== */
+const Som = {
+  ctx: null,
+  desbloquear() {
+    try {
+      if (!this.ctx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        this.ctx = new AC();
+      }
+      if (this.ctx.state !== 'running') this.ctx.resume();
+    } catch { /* sem áudio */ }
+  },
+  bipe(seq) { // seq: [[frequência Hz (0 = pausa), duração s], ...]
+    const c = this.ctx;
+    if (!c) return;
+    try {
+      if (c.state !== 'running') c.resume();
+      let t = c.currentTime + 0.03;
+      for (const [f, d] of seq) {
+        if (f > 0) {
+          const o = c.createOscillator(), g = c.createGain();
+          o.type = 'square'; o.frequency.value = f;
+          g.gain.setValueAtTime(0.0001, t);
+          g.gain.exponentialRampToValueAtTime(0.35, t + 0.01);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+          o.connect(g); g.connect(c.destination);
+          o.start(t); o.stop(t + d + 0.02);
+        }
+        t += d;
+      }
+    } catch { /* nada */ }
+  }
+};
+
+const Tela = { // Wake Lock: mantém a tela acesa enquanto o timer roda
+  quer: false, lock: null, pedindo: false,
+  async manter(sim) {
+    this.quer = sim;
+    if (!sim) { const l = this.lock; this.lock = null; try { await l?.release(); } catch { /* nada */ } return; }
+    if (!('wakeLock' in navigator) || this.lock || this.pedindo || document.visibilityState !== 'visible') return;
+    this.pedindo = true;
+    try {
+      const l = await navigator.wakeLock.request('screen');
+      if (!this.quer) l.release();
+      else { this.lock = l; l.addEventListener('release', () => { if (this.lock === l) this.lock = null; }); }
+    } catch { /* recusado: segue sem */ }
+    this.pedindo = false;
+  }
+};
+
+function alertar(tipo) { // 'min' = pode ir; 'max' = passou do máximo
+  if (S.config.vibracao && typeof navigator.vibrate === 'function') {
+    try { navigator.vibrate(tipo === 'min' ? [300, 150, 300] : [700]); } catch { /* nada */ }
+  }
+  if (S.config.som) Som.bipe(tipo === 'min' ? [[880, 0.18], [0, 0.1], [880, 0.18], [0, 0.1], [1320, 0.3]] : [[520, 0.7]]);
+  const t = $('#timer');
+  t.classList.remove('pisca'); void t.offsetWidth; t.classList.add('pisca');
+}
+
+const Timer = {
+  st: Armaz.ler(CHAVES.timer, null), // { inicio, min, max, rotulo, avisouMin, avisouMax }
+  int: null,
+  iniciar(faixa, rotulo) {
+    this.st = { inicio: Date.now(), min: faixa[0], max: faixa[1], rotulo, avisouMin: false, avisouMax: false };
+    this.salvar(); Tela.manter(true); this.rodar();
+  },
+  parar() {
+    this.st = null; this.salvar(); Tela.manter(false);
+    clearInterval(this.int); this.int = null; this.desenhar();
+  },
+  salvar() { Armaz.gravar(CHAVES.timer, this.st); },
+  rodar() { clearInterval(this.int); this.int = setInterval(() => this.tick(), 250); this.tick(); },
+  decorrido() { return this.st ? (Date.now() - this.st.inicio) / 1000 : 0; },
+  tick() {
+    const st = this.st;
+    if (!st) return this.desenhar();
+    const el = this.decorrido();
+    if (el >= st.max && !st.avisouMax) {
+      st.avisouMin = st.avisouMax = true; this.salvar();
+      alertar(st.max > st.min ? 'max' : 'min');
+    } else if (el >= st.min && !st.avisouMin) {
+      st.avisouMin = true; this.salvar();
+      alertar('min');
+    }
+    if (el > st.max + 180) return this.parar(); // esquecido ligado: desliga sozinho
+    this.desenhar();
+  },
+  desenhar() {
+    const t = $('#timer'), st = this.st;
+    if (!st) {
+      t.hidden = true;
+      document.documentElement.style.setProperty('--timer-h', '0px');
+      return;
+    }
+    const el = this.decorrido();
+    const fase = el < st.min ? 'descansando' : (el >= st.max && st.max > st.min ? 'passou' : 'pronto');
+    t.hidden = false;
+    t.classList.toggle('pronto', fase === 'pronto');
+    t.classList.toggle('passou', fase === 'passou');
+    $('.t-rot', t).textContent = st.rotulo;
+    $('.t-meta', t).textContent =
+      fase === 'descansando' ? `descanso · meta ${fmtFaixa([st.min, st.max], fmtSeg)}` :
+      fase === 'pronto' ? (st.max > st.min ? `pode ir ✓ · máx ${fmtSeg(st.max)}` : 'pode ir ✓') :
+      `passou do máximo (${fmtSeg(st.max)})`;
+    $('.t-tempo', t).textContent = fmtSeg(el);
+    const total = Math.max(st.max, 1);
+    $('.t-barra i', t).style.width = `${Math.min(100, (el / total) * 100)}%`;
+    $('.t-barra b', t).style.left = `calc(${Math.min(100, (st.min / total) * 100)}% - 3px)`;
+    document.documentElement.style.setProperty('--timer-h', `${t.offsetHeight}px`);
+  }
+};
+
+/* ==========================================================================
+   CORRIDA — fase 1 mostra só a prática da semana (cronômetro e registro: fase 2)
+   ========================================================================== */
+const blocoCorrida = x => S.plano?.[x.ref ?? 'corrida'] || null;
+function descreverCorrida(s) {
+  if (s.modo === 'continuo') return `${fmtMin(s.correr_min)} correndo sem parar`;
+  return `${fmtMin(s.correr_min)} correndo / ${fmtMin(s.andar_min)} andando × ${s.repeticoes}`;
+}
+function cardCorrida(x, semana) {
+  const b = blocoCorrida(x);
+  const s = b?.semanas.find(o => o.semana === semana);
+  const ultima = b ? Math.max(...b.semanas.map(o => o.semana)) : 0;
+  let corpo;
+  if (s) corpo = [
+    h('div', { class: 'corrida-desc' }, descreverCorrida(s)),
+    h('p', { class: 'muted' }, `Total ${fmtMin(totalCorridaMin(s))}${b.intensidade ? ' · ' + b.intensidade : ''}`),
+    s.alivio && h('span', { class: 'tag warn' }, 'semana de alívio')];
+  else if (b && semana > ultima && b.pos_semana_12) corpo = [h('div', { class: 'corrida-desc' }, b.pos_semana_12)];
+  else corpo = [h('p', { class: 'muted' }, `Sem prescrição de corrida para a semana ${semana}.`)];
+  return h('section', { class: 'card ex' },
+    h('div', { class: 'ex-cab' }, h('h3', null, x.nome), h('span', { class: 'muted' }, `semana ${semana}`)),
+    ...corpo,
+    h('p', { class: 'muted' }, 'Cronômetro e registro da corrida chegam na fase 2. Por enquanto, use o relógio.'));
+}
+
+/* ==========================================================================
+   TCX — fase 2 (importar arquivo do Amazfit)
+   ========================================================================== */
+
+/* ==========================================================================
+   HISTÓRICO (por data e por exercício)
+   ========================================================================== */
+function viewHistorico() {
+  const els = [h('h1', null, 'Histórico'),
+    h('div', { class: 'seg' }, [['data', 'Por data'], ['ex', 'Por exercício']].map(([v, t]) =>
+      h('button', { type: 'button', class: UI.histModo === v ? 'ativo' : '', onclick: () => { UI.histModo = v; render(false); } }, t)))];
+  if (!S.registros.length) {
+    els.push(h('div', { class: 'card muted' }, 'Nenhuma série registrada ainda.'));
+    return els;
+  }
+  return els.concat(UI.histModo === 'data' ? histPorData() : histPorExercicio());
+}
+
+function ordemNoDia(diaId) {
+  const m = new Map();
+  (diaPorId(diaId)?.exercicios ?? []).forEach((x, i) => m.set(x.id, i));
+  return id => (m.has(id) ? m.get(id) : 999);
+}
+
+function histPorData() {
+  const grupos = agrupar(S.registros, r => `${r.data}|${r.dia}`)
+    .sort(([a], [b]) => (a.slice(0, 10) === b.slice(0, 10) ? a.localeCompare(b) : b.localeCompare(a)));
+  return grupos.map(([k, regs]) => {
+    const [data, diaId] = k.split('|');
+    const dia = diaPorId(diaId);
+    const ordem = ordemNoDia(diaId);
+    const semanas = [...new Set(regs.map(r => r.semana))].join('/');
+    const porEx = agrupar(regs, r => r.exercicio).sort(([a], [b]) => ordem(a) - ordem(b));
+    return h('section', { class: 'card' },
+      h('h3', null, `${cap(NOMES_DIA_CURTO[diaDaSemana(data)])}, ${fmtData(data)}`),
+      h('p', { class: 'muted' }, `${dia ? dia.nome : 'Dia ' + diaId} · semana ${semanas} · ${regs.length} série${regs.length > 1 ? 's' : ''}`),
+      porEx.map(([exId, rs]) => h('div', { class: 'hist-ex' },
+        h('div', { class: 'hist-nome' }, nomeExercicio(exId)),
+        h('div', { class: 'chips' }, rs.sort((a, b) => a.serie - b.serie).map(r =>
+          h('button', { type: 'button', class: 'chip', onclick: () => abrirEdicao(r.id) }, textoSerie(r)))))),
+      h('button', { type: 'button', class: 'btn-bloco', onclick: () => {
+        UI.data = data; UI.dataManual = data !== hoje(); UI.diaId = dia ? diaId : diaPadrao(data); irPara('hoje');
+      } }, 'Abrir este dia na tela Hoje'));
+  });
+}
+
+function histPorExercicio() {
+  const mapa = exerciciosRegistraveis();
+  const comReg = new Set(S.registros.map(r => r.exercicio));
+  const opcoes = [...mapa.values()].map(x => [x.id, x.nome]);
+  for (const id of comReg) if (!mapa.has(id)) opcoes.push([id, `${id} (fora do plano)`]);
+  if (!opcoes.some(o => o[0] === UI.histEx)) UI.histEx = (opcoes.find(o => comReg.has(o[0])) || opcoes[0])?.[0];
+
+  const sel = h('select', { 'aria-label': 'Exercício', onchange: e => { UI.histEx = e.target.value; render(false); } },
+    opcoes.map(([id, nome]) => h('option', { value: id, selected: id === UI.histEx }, nome + (comReg.has(id) ? '' : ' — sem registros'))));
+  const regs = S.registros.filter(r => r.exercicio === UI.histEx);
+  const card = h('section', { class: 'card' }, sel);
+  if (!regs.length) { card.append(h('p', { class: 'muted' }, 'Sem registros deste exercício.')); return [card]; }
+
+  const comCarga = regs.filter(r => r.carga_kg != null);
+  if (comCarga.length) {
+    const top = comCarga.reduce((m, r) => (r.carga_kg > m.carga_kg ? r : m));
+    card.append(h('p', { class: 'muted' }, `Maior carga: ${fmtKg(top.carga_kg)} kg em ${fmtData(top.data)}`));
+  }
+  const porData = agrupar(regs, r => r.data).sort(([a], [b]) => b.localeCompare(a));
+  for (const [data, rs] of porData) {
+    card.append(h('div', { class: 'hist-ex' },
+      h('div', { class: 'hist-nome' }, `${fmtData(data)} · semana ${[...new Set(rs.map(r => r.semana))].join('/')}`),
+      h('div', { class: 'chips' }, rs.sort((a, b) => a.serie - b.serie).map(r =>
+        h('button', { type: 'button', class: 'chip', onclick: () => abrirEdicao(r.id) }, `${r.serie}ª: ${textoSerie(r)}`)))));
+  }
+  return [card];
+}
+
+/* ==========================================================================
+   GRÁFICOS — fase 3
+   ========================================================================== */
+
+/* ==========================================================================
+   BACKUP (exportar/importar tudo em JSON; aviso após 14 dias sem exportar)
+   ========================================================================== */
+function montarBackup() {
+  return { app: APP_ID, tipo: 'backup', versao_backup: 1, versao_app: APP_VERSAO, exportado_em: dataHoraLocal(),
+    plano: S.plano, config: S.config, registros: S.registros };
+}
+function arquivoBackup() {
+  return { json: JSON.stringify(montarBackup(), null, 2), nome: `treino-backup-${hoje()}.json` };
+}
+function marcarExport() { S.config.ultimo_export = dataHoraLocal(); salvarConfig(); render(); }
+
+function baixarBackup() {
+  const { json, nome } = arquivoBackup();
+  const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  const a = h('a', { href: url, download: nome });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 20000);
+  marcarExport();
+  toast(`Backup gerado: ${nome}`);
+}
+function podeCompartilharArquivo() {
+  try { return !!(navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'teste.json', { type: 'application/json' })] })); }
+  catch { return false; }
+}
+async function compartilharBackup() {
+  const { json, nome } = arquivoBackup();
+  try {
+    await navigator.share({ files: [new File([json], nome, { type: 'application/json' })] });
+    marcarExport();
+    toast('Backup enviado ✓');
+  } catch (e) {
+    if (e.name !== 'AbortError') toast(`Não deu para compartilhar: ${e.message}`, 'erro');
+  }
+}
+
+function diasSemBackup() {
+  const ref = S.config.ultimo_export || S.config.criado_em;
+  return ref ? diasEntre(ref.slice(0, 10), hoje()) : null;
+}
+function avisoBackup() {
+  const d = diasSemBackup();
+  if (!S.registros.length || d == null || d <= DIAS_AVISO_BACKUP) return null;
+  return h('div', { class: 'aviso warn' },
+    h('b', null, S.config.ultimo_export ? `Faz ${d} dias que você não exporta o backup.` : `Você usa o app há ${d} dias e ainda não exportou nenhum backup.`),
+    ' Se o navegador apagar os dados, o backup é a única cópia.',
+    h('button', { type: 'button', class: 'btn-pri btn-bloco', onclick: () => irPara('ajustes', 'sec-backup') }, 'Fazer backup'));
+}
+
+function validarBackup(b) {
+  const erros = [];
+  if (!b || typeof b !== 'object' || Array.isArray(b)) return ['o conteúdo não é um objeto JSON.'];
+  if (b.app !== APP_ID || b.tipo !== 'backup') {
+    if (Array.isArray(b.dias)) return ['este arquivo parece ser um PLANO (treino.json), não um backup. Use "Importar plano".'];
+    return ['não é um backup deste app (faltam "app": "treino-pwa" e "tipo": "backup").'];
+  }
+  if (!Array.isArray(b.registros)) erros.push('"registros" deve ser uma lista.');
+  else b.registros.forEach((r, i) => {
+    if (erros.length >= 10) return;
+    const p = [];
+    if (!r || typeof r !== 'object') p.push('não é objeto');
+    else {
+      if (typeof r.data !== 'string' || !RE_DATA.test(r.data)) p.push('data');
+      if (typeof r.dia !== 'string') p.push('dia');
+      if (typeof r.exercicio !== 'string') p.push('exercicio');
+      if ((r.reps != null || r.duracao_s != null) && !ehInt(r.serie)) p.push('serie');
+    }
+    if (p.length) erros.push(`registros[${i}]: campo(s) inválido(s): ${p.join(', ')}.`);
+  });
+  if (b.plano != null) {
+    const v = validarPlano(b.plano);
+    if (v.erros.length) erros.push(`o plano dentro do backup é inválido: ${v.erros.slice(0, 3).join(' | ')}`);
+  }
+  if (b.config != null && (typeof b.config !== 'object' || Array.isArray(b.config))) erros.push('"config" deve ser um objeto.');
+  return erros;
+}
+
+function importarBackup(b, saida) {
+  const erros = validarBackup(b);
+  if (erros.length) return mostrarErros(saida, 'O backup não foi restaurado:', erros);
+  const quando = typeof b.exportado_em === 'string' ? fmtData(b.exportado_em) : 'data desconhecida';
+  if (!confirm(`Restaurar o backup de ${quando} com ${b.registros.length} registro(s)?\n\nIsso SUBSTITUI tudo o que está no app agora (${S.registros.length} registro(s)).`)) return;
+
+  S.plano = b.plano ?? S.plano;
+  S.config = Object.assign({}, CONFIG_PADRAO, b.config || {});
+  if (typeof b.exportado_em === 'string') S.config.ultimo_export = b.exportado_em;
+  if (!S.config.criado_em) S.config.criado_em = dataHoraLocal();
+  S.registros = b.registros.map(r => {
+    const n = Object.assign({}, r);
+    if (!n.id) n.id = uid();
+    if (!n.tipo) n.tipo = n.duracao_s != null ? 'tempo' : (n.reps != null ? 'forca' : n.tipo);
+    return n;
+  });
+  const ok = salvarPlano() & salvarConfig() & salvarRegistros();
+  UI.rascunhos = {};
+  UI.diaId = diaPadrao(UI.data);
+  toast(ok ? 'Backup restaurado ✓' : 'Backup lido, mas houve erro ao salvar.', ok ? '' : 'erro');
+  irPara('hoje');
+}
+
+/* ==========================================================================
+   AJUSTES (plano, semana, backup, alertas, dados)
+   ========================================================================== */
+function widgetImportar(tipo) {
+  const saida = h('div');
+  const inFile = h('input', { type: 'file', hidden: true });
+  inFile.addEventListener('change', async () => {
+    const f = inFile.files?.[0];
+    inFile.value = '';
+    if (!f) return;
+    try { processarImportacao(tipo, await f.text(), saida, f.name); }
+    catch (e) { mostrarErros(saida, 'Não consegui ler o arquivo.', [e.message]); }
+  });
+  const ta = h('textarea', { autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false', autocomplete: 'off',
+    placeholder: tipo === 'plano' ? 'Cole aqui o conteúdo do treino.json' : 'Cole aqui o conteúdo do arquivo de backup' });
+  return h('div', null,
+    h('button', { type: 'button', class: 'btn-pri btn-bloco', onclick: () => inFile.click() },
+      tipo === 'plano' ? 'Selecionar treino.json' : 'Selecionar arquivo de backup'),
+    inFile,
+    h('details', null, h('summary', null, 'ou colar o texto'), ta,
+      h('button', { type: 'button', class: 'btn-bloco', onclick: () => processarImportacao(tipo, ta.value, saida) }, 'Validar e importar')),
+    saida);
+}
+function processarImportacao(tipo, texto, saida, nomeArq) {
+  const { obj, erro } = lerJSON(texto);
+  if (erro) return mostrarErros(saida, nomeArq ? `"${nomeArq}" não foi importado.` : 'Nada foi importado.', [erro]);
+  if (tipo === 'plano') importarPlano(obj, saida); else importarBackup(obj, saida);
+}
+function mostrarErros(saida, titulo, erros) {
+  saida.replaceChildren(h('div', { class: 'aviso erro', role: 'alert' }, h('b', null, titulo),
+    h('ul', null, erros.slice(0, 30).map(e => h('li', null, e))),
+    erros.length > 30 && h('p', null, `… e mais ${erros.length - 30}.`)));
+  saida.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+}
+
+function viewBoasVindas() {
+  return [
+    h('h1', null, 'Treino'),
+    UI.planoInvalido && h('div', { class: 'aviso erro' }, h('b', null, 'O plano salvo no app ficou inválido. Importe de novo:'),
+      h('ul', null, UI.planoInvalido.slice(0, 10).map(e => h('li', null, e)))),
+    !Armaz.disponivel && h('div', { class: 'aviso erro' }, 'Este navegador não deixa salvar dados (modo privado?). Abra o app instalado ou fora do modo privado.'),
+    h('section', { class: 'card destaque' },
+      h('h2', null, 'Importe o plano'),
+      h('p', { class: 'muted' }, 'Selecione o arquivo treino.json ou cole o texto dele. O treino vem todo do arquivo.'),
+      widgetImportar('plano')),
+    h('section', { class: 'card' },
+      h('h2', null, 'Já usava o app em outro aparelho?'),
+      h('p', { class: 'muted' }, 'Restaure um backup (traz plano, ajustes e registros).'),
+      widgetImportar('backup'))
+  ];
+}
+
+function viewAjustes() {
+  const els = [h('h1', null, 'Ajustes')];
+  const p = S.plano, nEx = p.dias.reduce((s, d) => s + d.exercicios.length, 0);
+  const { avisos } = validarPlano(p);
+
+  // Plano
+  els.push(h('section', { class: 'card', id: 'sec-plano' },
+    h('h2', null, 'Plano'),
+    h('p', null, h('b', null, p.nome)),
+    h('p', { class: 'muted' }, `${p.semanas} semanas · ${p.dias.length} dias · ${nEx} exercícios`,
+      S.config.plano_importado_em ? ` · importado em ${fmtData(S.config.plano_importado_em)}` : ''),
+    avisos.length > 0 && h('div', { class: 'aviso warn' }, h('b', null, 'Avisos do arquivo:'), h('ul', null, avisos.map(a => h('li', null, a)))),
+    h('details', null, h('summary', null, 'Trocar o plano (importar outro treino.json)'),
+      h('p', { class: 'muted' }, 'Os registros ficam. Exercícios com o mesmo "id" continuam com o histórico.'),
+      widgetImportar('plano'))));
+
+  // Semana
+  const sug = semanaPelaData(hoje()), atual = semanaEm(hoje()), N = totalSemanas();
+  const inInicio = h('input', { type: 'date', value: S.config.data_inicio || '', 'aria-label': 'Data de início do plano' });
+  inInicio.addEventListener('change', () => {
+    if (inInicio.value && !RE_DATA.test(inInicio.value)) return;
+    definirInicio(inInicio.value || null);
+    toast(inInicio.value ? `Início: ${fmtData(inInicio.value)}` : 'Sem data de início');
+    render();
+  });
+  let txtSug;
+  if (sug == null) txtSug = 'Sem data de início: a semana é escolhida só manualmente.';
+  else if (sug < 1) txtSug = `O plano ainda não começou (início em ${fmtData(S.config.data_inicio)}). Sugestão: semana 1.`;
+  else if (sug > N) txtSug = `Pela data, as ${N} semanas já passaram.`;
+  else txtSug = `Sugestão pela data: semana ${sug}.`;
+  const aj = S.config.ajuste_semana || 0;
+  els.push(h('section', { class: 'card', id: 'sec-semana' },
+    h('h2', null, 'Semana'),
+    h('label', { class: 'rotulo' }, 'Data de início do plano', inInicio),
+    h('p', { class: 'muted' }, txtSug),
+    h('div', { class: 'stepper' },
+      h('button', { type: 'button', 'aria-label': 'Semana anterior', disabled: atual <= 1, onclick: () => { definirSemana(atual - 1); render(); } }, '−'),
+      h('div', { class: 'valor' }, 'Semana ', h('b', null, atual), ` de ${N}`),
+      h('button', { type: 'button', 'aria-label': 'Próxima semana', disabled: atual >= N, onclick: () => { definirSemana(atual + 1); render(); } }, '+')),
+    aj !== 0 && h('div', { class: 'aviso info' },
+      `Ajuste manual: ${Math.abs(aj)} semana${Math.abs(aj) > 1 ? 's' : ''} ${aj < 0 ? 'atrás' : 'à frente'} da sugestão. O ajuste continua valendo nas próximas semanas.`,
+      h('button', { type: 'button', class: 'btn-bloco', onclick: () => { S.config.ajuste_semana = 0; salvarConfig(); render(); } }, 'Voltar para a sugestão')),
+    h('p', { class: 'muted' }, 'Repetiu uma semana? Toque em −. O app passa a contar a partir daí.')));
+
+  // Backup
+  const d = diasSemBackup();
+  els.push(h('section', { class: 'card', id: 'sec-backup' },
+    h('h2', null, 'Backup'),
+    h('p', null, S.config.ultimo_export
+      ? `Último backup: ${fmtData(S.config.ultimo_export)} (${d === 0 ? 'hoje' : `há ${d} dia${d > 1 ? 's' : ''}`}).`
+      : 'Nenhum backup exportado ainda.'),
+    h('p', { class: 'muted' }, `Leva plano, ajustes e ${S.registros.length} registro(s). Guarde fora do celular (Drive, e-mail, computador).`),
+    h('button', { type: 'button', class: 'btn-pri btn-bloco', onclick: baixarBackup }, 'Baixar backup (.json)'),
+    podeCompartilharArquivo() && h('button', { type: 'button', class: 'btn-bloco', onclick: compartilharBackup }, 'Compartilhar / salvar em…'),
+    h('details', null, h('summary', null, 'Restaurar backup'),
+      h('p', { class: 'muted' }, 'Substitui tudo o que está no app pelo conteúdo do backup.'),
+      widgetImportar('backup'))));
+
+  // Alertas
+  const temVibracao = typeof navigator.vibrate === 'function';
+  const chk = (rotulo, campo, desabilitado) => {
+    const c = h('input', { type: 'checkbox', checked: !!S.config[campo], disabled: desabilitado });
+    c.addEventListener('change', () => { S.config[campo] = c.checked; salvarConfig(); });
+    return h('label', { class: 'linha-check' }, c, rotulo);
+  };
+  els.push(h('section', { class: 'card', id: 'sec-alertas' },
+    h('h2', null, 'Alertas do descanso'),
+    chk('Som', 'som'),
+    chk(temVibracao ? 'Vibração' : 'Vibração (este navegador não suporta)', 'vibracao', !temVibracao),
+    h('button', { type: 'button', class: 'btn-bloco', onclick: () => { Som.desbloquear(); setTimeout(() => alertar('min'), 60); } }, 'Testar alerta'),
+    h('p', { class: 'muted' }, 'O alerta toca ao atingir o descanso mínimo e de novo no máximo. A tela fica acesa enquanto o timer roda, quando o aparelho permite. No iPhone não há vibração pelo navegador, e com o modo silencioso ligado o som pode não tocar.')));
+
+  // Dados
+  els.push(h('section', { class: 'card', id: 'sec-dados' },
+    h('h2', null, 'Dados neste aparelho'),
+    h('p', null, `${S.registros.length} registro(s). Armazenamento persistente: `,
+      UI.persistido === true ? 'sim' : UI.persistido === false ? 'não concedido' : UI.persistido === null ? 'não suportado' : 'verificando…'),
+    h('p', { class: 'muted' }, 'Tudo fica só no celular. Sem login, sem servidor, sem rastreamento.'),
+    h('button', { type: 'button', class: 'btn-perigo btn-bloco', onclick: apagarTudo }, 'Apagar todos os dados')));
+
+  els.push(h('p', { class: 'muted', style: 'text-align:center' }, `Versão ${APP_VERSAO}`));
+  return els;
+}
+
+function apagarTudo() {
+  if (!confirm('Apagar plano, ajustes e TODOS os registros deste aparelho?')) return;
+  if (!confirm('Tem certeza? Sem backup, não dá para recuperar.')) return;
+  Timer.parar();
+  Object.values(CHAVES).forEach(k => Armaz.apagar(k));
+  S.plano = null; S.config = Object.assign({}, CONFIG_PADRAO); S.registros = [];
+  UI.rascunhos = {}; UI.aba = 'hoje';
+  toast('Dados apagados');
+  render(false);
+}
+
+/* ==========================================================================
+   APP (navegação, inicialização, service worker)
+   ========================================================================== */
+function irPara(aba, secao) { UI.aba = aba; UI.secaoAlvo = secao || null; render(false); }
+
+function render(manterScroll = true) {
+  const y = window.scrollY;
+  let conteudo;
+  if (!S.plano) conteudo = viewBoasVindas();
+  else if (UI.aba === 'historico') conteudo = viewHistorico();
+  else if (UI.aba === 'ajustes') conteudo = viewAjustes();
+  else conteudo = viewHoje();
+  $('#main').replaceChildren(...[].concat(conteudo).filter(Boolean));
+  $('#nav').hidden = !S.plano;
+  for (const b of document.querySelectorAll('#nav button')) b.classList.toggle('ativo', b.dataset.aba === UI.aba);
+  Timer.desenhar();
+  if (UI.secaoAlvo) {
+    const alvo = document.getElementById(UI.secaoAlvo);
+    UI.secaoAlvo = null;
+    if (alvo) { alvo.scrollIntoView({ block: 'start' }); return; }
+  }
+  window.scrollTo(0, manterScroll ? y : 0);
+}
+
+function registrarSW() {
+  if (!('serviceWorker' in navigator) || location.protocol === 'file:') return;
+  navigator.serviceWorker.register('./sw.js').then(reg => {
+    UI.swReg = reg;
+    const oferecer = w => { UI.swEsperando = w; $('#banner-update').hidden = false; };
+    if (reg.waiting && navigator.serviceWorker.controller) oferecer(reg.waiting);
+    reg.addEventListener('updatefound', () => {
+      const w = reg.installing;
+      if (!w) return;
+      w.addEventListener('statechange', () => { if (w.state === 'installed' && navigator.serviceWorker.controller) oferecer(w); });
+    });
+  }).catch(e => console.warn('service worker', e));
+  // Só recarrega quando você toca em "Atualizar" (nunca no meio do treino sem pedir)
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (UI.atualizando) location.reload(); });
+}
+
+let ultimaChecagemSW = Date.now();
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  if (Tela.quer) Tela.manter(true);
+  Timer.tick();
+  if (!UI.dataManual && UI.data !== hoje()) { UI.data = hoje(); UI.diaId = diaPadrao(UI.data); render(); } // virou o dia com o app aberto
+  if (UI.swReg && Date.now() - ultimaChecagemSW > 30 * 60 * 1000) { ultimaChecagemSW = Date.now(); UI.swReg.update().catch(() => {}); }
+});
+
+(function iniciar() {
+  if (S.plano) {
+    const v = validarPlano(S.plano);
+    if (v.erros.length) { UI.planoInvalido = v.erros; S.plano = null; }
+  }
+  UI.diaId = diaPadrao(UI.data);
+  document.addEventListener('pointerdown', () => Som.desbloquear(), { passive: true });
+  for (const b of document.querySelectorAll('#nav button')) b.addEventListener('click', () => irPara(b.dataset.aba));
+  $('#timer .t-parar').addEventListener('click', () => Timer.parar());
+  $('#btn-atualizar').addEventListener('click', () => {
+    UI.atualizando = true;
+    if (UI.swEsperando) UI.swEsperando.postMessage('pular-espera'); else location.reload();
+  });
+  if (Timer.st) {
+    if (!Timer.st.inicio || Timer.decorrido() > Timer.st.max + 180) Timer.parar();
+    else { Tela.manter(true); Timer.rodar(); }
+  }
+  render(false);
+  pedirPersistencia().then(() => { if (UI.aba === 'ajustes') render(); });
+  registrarSW();
+})();
+</script>
+</body>
+</html>
