@@ -2,7 +2,7 @@
    - Guarda os arquivos do app no cache para funcionar offline.
    - IMPORTANTE: ao publicar qualquer mudança no app, troque VERSAO abaixo
      (ex.: 'treino-v1.0.1'). É assim que o celular percebe a atualização. */
-const VERSAO = 'treino-v1.0.0';
+const VERSAO = 'treino-v1.2.0';
 const ARQUIVOS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', evento => {

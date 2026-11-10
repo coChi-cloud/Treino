@@ -20,7 +20,7 @@
   --txt:#eef1f6;--muted:#a3acba;--acc:#a3e635;--acc-txt:#11160a;
   --ok:#4ade80;--ok-bg:#12301d;--warn:#fbbf24;--warn-bg:#3a2c08;
   --err:#f87171;--err-bg:#3b1414;--info:#7cb8ff;--info-bg:#132339;
-  --nav-h:64px;--timer-h:0px;--sb:env(safe-area-inset-bottom,0px);
+  --nav-h:64px;--timer-h:0px;--sessao-h:0px;--sb:env(safe-area-inset-bottom,0px);
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%;background:var(--bg)}
@@ -28,7 +28,7 @@ body{margin:0;min-height:100vh;background:var(--bg);color:var(--txt);
   font:17px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
   -webkit-tap-highlight-color:transparent;touch-action:manipulation;
   padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) 0 env(safe-area-inset-left,0px)}
-main{max-width:640px;margin:0 auto;padding:12px 12px calc(var(--nav-h) + var(--sb) + var(--timer-h) + 28px)}
+main{max-width:640px;margin:0 auto;padding:12px 12px calc(var(--nav-h) + var(--sb) + var(--timer-h) + var(--sessao-h) + 28px)}
 h1{font-size:26px;margin:6px 2px 12px}
 h2{font-size:20px;margin:0 0 8px}
 h3{font-size:19px;margin:0}
@@ -116,7 +116,7 @@ details[open]>summary::before{content:'▾'}
 .stepper .valor b{font-size:34px}
 
 /* timer de descanso */
-#timer{position:fixed;left:0;right:0;bottom:calc(var(--nav-h) + var(--sb));z-index:30;background:#1b2130;
+#timer{position:fixed;left:0;right:0;bottom:calc(var(--nav-h) + var(--sb) + var(--sessao-h));z-index:30;background:#1b2130;
   border-top:2px solid var(--info);padding:10px 14px 12px;display:grid;grid-template-columns:1fr auto auto;gap:6px 12px;align-items:center}
 #timer[hidden]{display:none}
 #timer .t-info{min-width:0}
@@ -133,6 +133,49 @@ details[open]>summary::before{content:'▾'}
 #timer.passou .t-barra i{background:var(--warn)}
 #timer.pisca{animation:pisca .35s ease-in-out 4}
 @keyframes pisca{50%{filter:brightness(2.2)}}
+
+/* sessão de treino: barra fixa acima da navegação, cronômetro no topo, folha de fim */
+#sessao-bar{position:fixed;left:0;right:0;bottom:calc(var(--nav-h) + var(--sb));z-index:30;background:#0d1016;
+  border-top:1px solid var(--borda);padding:8px 12px;display:flex;gap:10px;align-items:center}
+#sessao-bar[hidden]{display:none}
+#sessao-bar.andamento{border-top-color:var(--acc)}
+#sessao-bar .s-info{flex:1 1 0;min-width:0;color:var(--muted);font-size:16px}
+#sessao-bar button{flex:1 1 0;min-height:52px}
+.btn-fim{background:transparent;border-color:var(--acc);color:var(--acc);font-weight:700}
+.cron-sessao{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0 2px 8px;padding:6px 12px;
+  border:1px solid var(--borda);border-radius:999px;color:var(--muted);font-size:16px}
+.cron-sessao b{color:var(--acc);font-size:18px;font-variant-numeric:tabular-nums}
+.rot-grupo{display:block;margin-top:12px;color:var(--muted)}
+.esforco{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:6px}
+.esforco button{padding:0;font-weight:800;font-variant-numeric:tabular-nums}
+.seg-sn{display:flex;gap:8px;margin-top:6px}
+.seg-sn button{flex:1;font-weight:700}
+.esforco button.ativo,.seg-sn button.ativo{background:var(--acc);border-color:var(--acc);color:var(--acc-txt)}
+.horarios{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+input[type=time]{min-height:52px}
+.hist-sessao{padding:10px 0 4px;border-top:1px solid var(--borda);margin-top:10px}
+.ancoras{font-size:16px;margin:6px 0 0}
+.alerta-dor{margin:10px 0 0}
+
+/* sugestão de progressão (TR-03 a TR-09) */
+.sugestao{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:8px 0 2px;padding:8px 12px;border-radius:12px;
+  border:1px solid var(--borda);background:var(--card2);font-size:16px}
+.sugestao span{flex:1 1 180px}
+.sugestao.aumentar{border-color:#1f6b3a}
+.sugestao.reduzir,.sugestao.retorno{border-color:#7a5a10}
+.sugestao .chip{flex:none}
+
+/* grupos musculares e dias treinados */
+.grupos{display:flex;flex-wrap:wrap;gap:6px;margin:0 2px 12px}
+.grupo{border:1px solid var(--borda);border-radius:999px;padding:4px 12px;font-size:16px;background:var(--card)}
+.grupos-ex{color:var(--muted);font-size:16px;margin:2px 0 0}
+.semana-dias{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin:0 0 10px}
+.semana-dias .d{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:16px;color:var(--muted)}
+.semana-dias .d.hoje{color:var(--txt);font-weight:800}
+.semana-dias i{display:block;width:14px;height:14px;border-radius:50%;border:2px solid var(--borda)}
+.semana-dias .d.feito i{background:var(--acc);border-color:var(--acc)}
+.abas button{flex-direction:column;gap:2px;line-height:1.2}
+.abas .ult{font-size:16px;font-weight:500;opacity:.85}
 
 /* navegação inferior */
 #nav{position:fixed;left:0;right:0;bottom:0;z-index:31;display:grid;grid-template-columns:repeat(3,1fr);
@@ -168,6 +211,7 @@ dialog::backdrop{background:#000a}
   <button type="button" class="t-parar">Parar</button>
   <div class="t-barra"><i></i><b></b></div>
 </div>
+<div id="sessao-bar" hidden></div>
 <nav id="nav" hidden>
   <button type="button" data-aba="hoje">Hoje</button>
   <button type="button" data-aba="historico">Histórico</button>
@@ -182,14 +226,16 @@ dialog::backdrop{background:#000a}
    CONFIGURAÇÃO GERAL
    ========================================================================== */
 const APP_ID = 'treino-pwa';
-const APP_VERSAO = '1.0.0 (fase 1)';
+const APP_VERSAO = '1.2.0';
 const CHAVES = {
   plano: 'treino.plano.v1',
   config: 'treino.config.v1',
   registros: 'treino.registros.v1',
-  timer: 'treino.timer.v1'
+  timer: 'treino.timer.v1',
+  sessoes: 'treino.sessoes.v1'
 };
 const DIAS_AVISO_BACKUP = 14;
+const HORAS_SESSAO_ESQUECIDA = 3;
 
 /* ==========================================================================
    UTILIDADES (datas, números, DOM)
@@ -234,6 +280,13 @@ function fmtSeg(s) { s = Math.max(0, Math.floor(s)); return `${Math.floor(s / 60
 function fmtFaixa(f, fmt = String) { return f[0] === f[1] ? fmt(f[0]) : `${fmt(f[0])}–${fmt(f[1])}`; }
 function fmtKg(n) { return String(Math.round(n * 100) / 100).replace('.', ','); }
 function fmtMin(n) { return `${String(n).replace('.', ',')} min`; }
+function fmtHora(iso) { return typeof iso === 'string' && iso.length >= 16 ? iso.slice(11, 16) : '—'; } // hora local gravada no ISO
+function fmtDuracao(s) { // 4158 → "1h09min"; 2520 → "42 min"
+  s = Math.max(0, Math.round(s || 0));
+  const hh = Math.floor(s / 3600), mm = Math.floor((s % 3600) / 60);
+  return hh ? `${hh}h${pad2(mm)}min` : `${mm} min`;
+}
+function fmtCron(s) { s = Math.max(0, Math.floor(s)); return `${Math.floor(s / 3600)}:${pad2(Math.floor((s % 3600) / 60))}:${pad2(s % 60)}`; }
 function lerNumero(txt) { // aceita vírgula; vazio → null; inválido → NaN
   const t = String(txt ?? '').trim().replace(',', '.');
   if (t === '') return null;
@@ -281,7 +334,9 @@ const UI = {
   histModo: 'data', histEx: null,
   avisosImport: null, planoInvalido: null, erroGravacao: false,
   persistido: undefined, swReg: null, swEsperando: null, atualizando: false,
-  secaoAlvo: null
+  secaoAlvo: null,
+  perguntouSessao: null,    // id da sessão esquecida já perguntada nesta abertura
+  manterSemana: false       // TR-02: "Manter semana N" esconde o aviso de pausa até fechar o app
 };
 
 const Armaz = {
@@ -311,13 +366,16 @@ const CONFIG_PADRAO = {
 const S = {
   plano: Armaz.ler(CHAVES.plano, null),
   config: Object.assign({}, CONFIG_PADRAO, Armaz.ler(CHAVES.config, {}) || {}),
-  registros: Armaz.ler(CHAVES.registros, [])
+  registros: Armaz.ler(CHAVES.registros, []),
+  sessoes: Armaz.ler(CHAVES.sessoes, [])      // 1.1.0: chave nova; ausente = nenhuma sessão
 };
 if (!Array.isArray(S.registros)) S.registros = [];
+if (!Array.isArray(S.sessoes)) S.sessoes = [];
 
 const salvarPlano = () => Armaz.gravar(CHAVES.plano, S.plano);
 const salvarConfig = () => Armaz.gravar(CHAVES.config, S.config);
 const salvarRegistros = () => Armaz.gravar(CHAVES.registros, S.registros);
+const salvarSessoes = () => Armaz.gravar(CHAVES.sessoes, S.sessoes);
 
 function falhaGravacao() {
   UI.erroGravacao = true;
@@ -386,6 +444,11 @@ function validarPlano(p) {
         if (typeof x.id !== 'string' || !x.id.trim()) erro(o, 'falta "id".');
         else if (idsEx.has(x.id)) erro(o, `"id" repetido no mesmo dia: "${x.id}".`);
         else idsEx.add(x.id);
+        for (const c of ['grupos', 'grupos_sec']) // opcionais (1.1.0): formato errado só gera aviso
+          if (x[c] != null && !(Array.isArray(x[c]) && x[c].every(g => typeof g === 'string'))) avisos.push(`${o}: "${c}" deve ser uma lista de textos; foi ignorado.`);
+        if (x.incremento_kg != null && !(ehNum(x.incremento_kg) && x.incremento_kg > 0)) // TR-04: aviso, não erro
+          avisos.push(`${o}: "incremento_kg" deve ser um número maior que zero; o app usa ${fmtKg(INCREMENTO_PADRAO_KG)} kg.`);
+        if (x.com_carga != null && typeof x.com_carga !== 'boolean') avisos.push(`${o}: "com_carga" deve ser true ou false; foi ignorado.`);
         if (!TIPOS_EXERCICIO.includes(x.tipo)) return erro(o, `"tipo" inválido (${JSON.stringify(x.tipo)}). Use: ${TIPOS_EXERCICIO.join(', ')}.`);
 
         const series = () => { if (!ehInt(x.series) || x.series < 1) erro(o, '"series" deve ser um número inteiro ≥ 1.'); };
@@ -506,6 +569,40 @@ function exerciciosRegistraveis() { // força e tempo, por id, na ordem do plano
 const nomeExercicio = id => exerciciosRegistraveis().get(id)?.nome ?? id;
 
 /* ==========================================================================
+   GRUPOS MUSCULARES (campos opcionais "grupos" e "grupos_sec" do plano)
+   ========================================================================== */
+const NOMES_GRUPO = {
+  quadriceps: 'Quadríceps', posterior_coxa: 'Posterior de coxa', gluteo: 'Glúteo', panturrilha: 'Panturrilha',
+  peitoral: 'Peitoral', dorsal: 'Dorsal', deltoide: 'Deltoide', biceps: 'Bíceps', triceps: 'Tríceps',
+  core: 'Core', antebraco: 'Antebraço'
+};
+const nomeGrupo = id => NOMES_GRUPO[id] ?? String(id); // identificador desconhecido: mostra o texto original
+function gruposDe(x, campo = 'grupos') { // campo ausente ou fora do formato → []
+  const v = x?.[campo];
+  return Array.isArray(v) ? v.filter(g => typeof g === 'string' && g.trim()) : [];
+}
+function gruposDoDia(dia) { // principais, sem repetir, por nº de exercícios que trabalham o grupo (empate: ordem do plano)
+  const cont = new Map();
+  for (const x of dia.exercicios) for (const g of new Set(gruposDe(x))) cont.set(g, (cont.get(g) || 0) + 1);
+  return [...cont.entries()].sort((a, b) => b[1] - a[1]).map(([g]) => g);
+}
+// Pronta para a fase 3 (ainda sem uso na tela): volume = repetições × carga, somado por série,
+// por grupo; principal conta 1 e secundário 0,5. Série sem carga ou de tempo (sem repetições) soma 0.
+function volumePorGrupo(registros, plano = S.plano) {
+  const ex = new Map();
+  for (const d of plano?.dias ?? []) for (const x of d.exercicios) if (!ex.has(x.id)) ex.set(x.id, x);
+  const vol = {};
+  for (const r of registros) {
+    const x = ex.get(r.exercicio);
+    if (!x || !ehNum(r.reps) || !ehNum(r.carga_kg)) continue;
+    const v = r.reps * r.carga_kg;
+    for (const g of new Set(gruposDe(x))) vol[g] = (vol[g] || 0) + v;
+    for (const g of new Set(gruposDe(x, 'grupos_sec'))) vol[g] = (vol[g] || 0) + v * 0.5;
+  }
+  return vol;
+}
+
+/* ==========================================================================
    SEMANA (sugestão pela data de início + ajuste manual)
    Semana sugerida = dias desde o início ÷ 7 + 1. O ajuste manual é guardado como
    deslocamento: se você repete uma semana (−1), o app continua contando a partir dali.
@@ -515,8 +612,11 @@ function semanaPelaData(data) {
   if (!S.config.data_inicio) return null;
   return Math.floor(diasEntre(S.config.data_inicio, data) / 7) + 1;
 }
-const baseSemana = data => limitar(semanaPelaData(data) ?? 1, 1, totalSemanas());
-const semanaEm = data => limitar(baseSemana(data) + (S.config.ajuste_semana || 0), 1, totalSemanas());
+// TR-01: a base não trava no fim do plano; só o resultado final trava (1 a total).
+// Assim, quem repetiu semana (ajuste −1) chega à última semana, e a corrida enxerga o pós-plano.
+const baseSemana = data => Math.max(1, semanaPelaData(data) ?? 1);
+const semanaBruta = data => baseSemana(data) + (S.config.ajuste_semana || 0);
+const semanaEm = data => limitar(semanaBruta(data), 1, totalSemanas());
 function definirSemana(alvo) {
   alvo = limitar(alvo, 1, totalSemanas());
   S.config.ajuste_semana = alvo - baseSemana(hoje());
@@ -552,6 +652,11 @@ function viewHoje() {
   const dwData = diaDaSemana(data), dwDia = idxDiaSemana(dia.dia_semana);
   const els = [];
 
+  const sAnd = Sessao.emAndamento();
+  if (sAnd) els.push(h('div', { class: 'cron-sessao', id: 'cron-sessao', role: 'timer' },
+    h('span', null, `${diaPorId(sAnd.dia)?.nome ?? 'Treino ' + sAnd.dia} em andamento`),
+    h('b', null, fmtCron(Sessao.decorrido(sAnd)))));
+
   els.push(h('div', { class: 'topo' },
     h('div', null,
       h('div', { class: 'titulo' }, `${cap(NOMES_DIA[dwData])}, ${fmtData(data).slice(0, 5)}`),
@@ -566,13 +671,25 @@ function viewHoje() {
   els.push(h('div', { class: 'linha-data' }, inData,
     !ehHoje && h('button', { type: 'button', onclick: () => { UI.data = hoje(); UI.dataManual = false; UI.diaId = diaPadrao(UI.data); render(); } }, 'Hoje')));
 
-  els.push(h('div', { class: 'abas', role: 'tablist' }, diasDoPlano().map(d =>
-    h('button', { type: 'button', role: 'tab', class: d.id === dia.id ? 'ativo' : '', 'aria-selected': String(d.id === dia.id),
+  els.push(fileiraSemana());
+
+  els.push(h('div', { class: 'abas', role: 'tablist' }, diasDoPlano().map(d => {
+    const ult = ultimaExecucao(d.id);
+    return h('button', { type: 'button', role: 'tab', class: d.id === dia.id ? 'ativo' : '', 'aria-selected': String(d.id === dia.id),
       onclick: () => { UI.diaId = d.id; render(); } },
-      `${d.id} · ${NOMES_DIA_CURTO[idxDiaSemana(d.dia_semana)]}`))));
+      h('span', null, `${d.id} · ${NOMES_DIA_CURTO[idxDiaSemana(d.dia_semana)]}`),
+      h('span', { class: 'ult' }, ult ? `Última execução: ${fmtData(ult).slice(0, 5)}` : 'Ainda não feito'));
+  })));
+
+  const grupos = gruposDoDia(dia);
+  if (grupos.length) els.push(h('div', { class: 'grupos', 'aria-label': 'Grupos musculares principais do treino' },
+    grupos.map(g => h('span', { class: 'grupo' }, nomeGrupo(g)))));
 
   // Avisos
   if (UI.erroGravacao) els.push(h('div', { class: 'aviso erro' }, h('b', null, 'O aparelho recusou salvar dados. '), 'Exporte o backup em Ajustes antes de fechar o app.'));
+  if (dorNasDuasUltimas()) els.push(h('div', { class: 'aviso warn', role: 'alert' }, // TR-08 item 2
+    h('b', null, 'Dor registrada nas duas últimas sessões. '),
+    'Dor que persiste deve ser avaliada por um profissional de saúde (médico ou fisioterapeuta). Enquanto isso, o app não sugere aumento de carga nem de semana de corrida.'));
   if (UI.avisosImport) els.push(h('div', { class: 'aviso warn' }, h('b', null, 'Plano importado, com avisos:'),
     h('ul', null, UI.avisosImport.map(a => h('li', null, a))),
     h('button', { type: 'button', onclick: () => { UI.avisosImport = null; render(); } }, 'Entendi')));
@@ -582,6 +699,8 @@ function viewHoje() {
   const sPela = semanaPelaData(data);
   if (sPela != null && sPela < 1) els.push(h('div', { class: 'aviso info' }, `O plano começa em ${fmtData(S.config.data_inicio)}. Registros antes disso contam como semana 1.`));
   if (sPela != null && sPela > totalSemanas()) els.push(h('div', { class: 'aviso info' }, `As ${totalSemanas()} semanas do plano já passaram; a semana fica travada em ${totalSemanas()}.`));
+  const pausa = avisoPausaSemana(data, semana, ehHoje);
+  if (pausa) els.push(pausa);
   if (dwDia !== dwData) els.push(h('div', { class: 'aviso info' }, `${dia.nome} é de ${NOMES_DIA[dwDia]} e a data escolhida é ${NOMES_DIA[dwData]}. Dá para registrar mesmo assim.`));
 
   // Progresso
@@ -599,10 +718,44 @@ function viewHoje() {
     if (x.tipo === 'forca' || x.tipo === 'tempo') els.push(cardExercicio(x, dia, data, semana));
     else if (x.tipo === 'aquecimento') els.push(h('section', { class: 'card ex' },
       h('div', { class: 'ex-cab' }, h('h3', null, x.nome), h('span', { class: 'muted' }, fmtMin(x.duracao_min)))));
-    else if (x.tipo === 'corrida') els.push(cardCorrida(x, semana));
+    else if (x.tipo === 'corrida') els.push(cardCorrida(x, semana, semanaBruta(data)));
   }
   if (previstas > 0 && feitas >= previstas) els.push(h('div', { class: 'aviso ok' }, h('b', null, 'Treino completo ✓ '), 'Todas as séries registradas.'));
   return els;
+}
+
+// Fileira Seg–Dom da semana do calendário de hoje (não da "semana do plano").
+// Bolinha cheia: alguma série registrada ou sessão finalizada naquele dia.
+function fileiraSemana() {
+  const hj = hoje(), seg = somarDias(hj, -((diaDaSemana(hj) + 6) % 7));
+  const feitos = new Set([...S.registros.map(r => r.data), ...Sessao.finalizadas().map(s => s.data)]);
+  return h('div', { class: 'semana-dias' }, [0, 1, 2, 3, 4, 5, 6].map(i => {
+    const d = somarDias(seg, i), feito = feitos.has(d);
+    return h('div', { class: 'd' + (feito ? ' feito' : '') + (d === hj ? ' hoje' : ''), role: 'img',
+      'aria-label': `${NOMES_DIA[diaDaSemana(d)]}, ${fmtData(d).slice(0, 5)}: ${feito ? 'treinou' : 'sem treino'}` },
+      cap(NOMES_DIA_CURTO[diaDaSemana(d)]), h('i'));
+  }));
+}
+// TR-02: a semana anda pelo calendário; depois de uma pausa, oferece voltar para onde parou.
+// M = semana do registro mais recente até a data da tela (o próprio dia conta, para o aviso sumir ao registrar).
+function avisoPausaSemana(data, N, ehHoje) {
+  if (UI.manterSemana) return null;
+  const regs = S.registros.filter(r => typeof r.data === 'string' && RE_DATA.test(r.data) && r.data <= data && ehInt(r.semana));
+  if (!regs.length) return null;
+  const dUlt = regs.reduce((m, r) => (r.data > m ? r.data : m), '');
+  const M = Math.max(...regs.filter(r => r.data === dUlt).map(r => r.semana));
+  if (!(N > M + 1)) return null;
+  const A = diasEntre(dUlt, data) > 28 ? M : M + 1;
+  return h('div', { class: 'aviso info' },
+    `Último treino registrado: semana ${M} (${fmtData(dUlt).slice(0, 5)}). Pela data, hoje seria a semana ${N}.`,
+    ehHoje && h('div', { class: 'acoes' },
+      h('button', { type: 'button', class: 'btn-pri', onclick: () => { definirSemana(A); toast(`Semana ${A}`); render(); } }, `Continuar da semana ${A}`),
+      h('button', { type: 'button', onclick: () => { UI.manterSemana = true; render(); } }, `Manter semana ${N}`)));
+}
+
+// Último dia com pelo menos uma série registrada daquele treino (sai dos registros, sem campo novo)
+function ultimaExecucao(diaId) {
+  return S.registros.reduce((m, r) => (r.dia === diaId && typeof r.data === 'string' && r.data > m ? r.data : m), '') || null;
 }
 
 function cardInicio() {
@@ -630,9 +783,12 @@ function cardExercicio(x, dia, data, semana) {
     ? `${x.series} × ${fmtFaixa(x.duracao_s)} s`
     : `${x.series} × ${fmtFaixa(x.reps)} reps${x.por_perna ? ' por perna' : ''}`;
 
+  const gEx = gruposDe(x);
   const card = h('section', { class: 'card ex' + (concluido ? ' concluido' : '') },
     h('div', { class: 'ex-cab' }, h('h3', null, x.nome), concluido && h('span', { class: 'tag ok' }, 'feito')),
-    h('p', { class: 'meta' }, `${meta} · descanso ${fmtFaixa(x.descanso_s, fmtSeg)}`));
+    h('p', { class: 'meta' }, `${meta} · descanso ${fmtFaixa(x.descanso_s, fmtSeg)}`),
+    gEx.length > 0 && h('p', { class: 'grupos-ex' }, gEx.map(nomeGrupo).join(' · ')),
+    regs.length === 0 && linhaSugestao(x, dia, data)); // TR-03: some depois da 1ª série do dia
   if (!concluido) card.append(h('div', { class: 'serie cab', 'aria-hidden': 'true' },
     h('span', null, '#'), h('span', null, ehTempo ? 'seg' : (x.por_perna ? 'reps/perna' : 'reps')),
     h('span', null, ehTempo ? 'kg (opc.)' : 'kg'), h('span')));
@@ -719,6 +875,8 @@ function concluirSerie(x, dia, data, semana, n, txtA, txtB, chave) {
   if (ehTempo) { r.duracao_s = v.a; if (v.kg != null) r.carga_kg = v.kg; }
   else { r.reps = v.a; r.carga_kg = v.kg; } // carga null = sem carga (peso do corpo)
   Object.assign(r, { obs: '', id: uid(), tipo: x.tipo, registrado_em: dataHoraLocal() });
+  const sAnd = Sessao.emAndamento(); // vínculo só com o treino em andamento do mesmo dia e data
+  if (sAnd && sAnd.data === data && sAnd.dia === dia.id) r.sessao_id = sAnd.id;
 
   S.registros = S.registros.filter(o => !(o.data === data && o.dia === dia.id && o.exercicio === x.id && o.serie === n));
   S.registros.push(r);
@@ -767,8 +925,281 @@ function abrirEdicao(id) {
 }
 
 /* ==========================================================================
-   PROGRESSÃO — fase 2 (última sessão ao lado da série, dupla progressão, esforço e dor)
+   SESSÃO DE TREINO — 1.1.0 (iniciar/finalizar, duração, esforço, dor)
+   Formato de registro_exemplo.sessao do treino.json. Em andamento = "fim" null.
+   Só uma em andamento por vez. Série registrada sem sessão continua valendo (sem sessao_id).
    ========================================================================== */
+const Sessao = {
+  int: null,
+  emAndamento() { return S.sessoes.find(s => s && s.fim == null) || null; },
+  finalizadas() { return S.sessoes.filter(s => s && s.fim != null); },
+  porId(id) { return S.sessoes.find(s => s && s.id === id) || null; },
+  decorrido(s) { return (Date.now() - Date.parse(s.inicio)) / 1000; },
+  iniciar(diaId) {
+    if (this.emAndamento()) return toast('Já existe um treino em andamento.', 'erro');
+    const data = hoje();
+    S.sessoes.push({ id: 's-' + uid(), dia: diaId, semana: semanaEm(data), data, inicio: dataHoraLocal(), fim: null,
+      duracao_s: null, esforco: null, dor: { houve: false, obs: '' }, obs: '', sessao_relogio: null });
+    salvarSessoes();
+    toast('Treino iniciado');
+    this.rodar(); render();
+  },
+  finalizar(fimIso, focarFim = false) { // grava fim e duração na hora e abre a folha de fim
+    const s = this.emAndamento();
+    if (!s) return;
+    s.fim = fimIso || dataHoraLocal();
+    s.duracao_s = Math.max(0, Math.round((Date.parse(s.fim) - Date.parse(s.inicio)) / 1000));
+    salvarSessoes();
+    this.parar(); render();
+    abrirFolhaSessao(s.id, { fim: true, focarFim });
+  },
+  apagar(id) { // apaga a sessão e só remove o vínculo das séries
+    S.sessoes = S.sessoes.filter(s => !s || s.id !== id);
+    let n = 0;
+    for (const r of S.registros) if (r.sessao_id === id) { delete r.sessao_id; n++; }
+    salvarSessoes();
+    if (n) salvarRegistros();
+  },
+  rodar() { clearInterval(this.int); this.int = setInterval(() => this.tick(), 1000); this.tick(); },
+  parar() { clearInterval(this.int); this.int = null; },
+  tick() {
+    const s = this.emAndamento();
+    if (!s) return this.parar();
+    const el = $('#cron-sessao b');
+    if (el) el.textContent = fmtCron(this.decorrido(s));
+  },
+  ultimaSerie(id) { // registrado_em da última série vinculada; sugestão de término
+    const t = S.registros.filter(r => r.sessao_id === id && typeof r.registrado_em === 'string').map(r => r.registrado_em);
+    return t.length ? t.reduce((m, v) => (Date.parse(v) > Date.parse(m) ? v : m)) : null;
+  },
+  verificarEsquecida() { // ao abrir o app: sessão aberta há mais de 3 h
+    const s = this.emAndamento();
+    if (!s || UI.perguntouSessao === s.id || $('#dlg').open) return;
+    if (!(this.decorrido(s) > HORAS_SESSAO_ESQUECIDA * 3600)) return;
+    UI.perguntouSessao = s.id;
+    perguntarSessaoEsquecida(s);
+  }
+};
+
+function desenharBarraSessao() { // barra fixa acima da navegação, só na tela Hoje
+  const bar = $('#sessao-bar'), s = Sessao.emAndamento();
+  const mostrar = !!S.plano && UI.aba === 'hoje' && (!!s || UI.data === hoje());
+  bar.hidden = !mostrar;
+  bar.classList.toggle('andamento', !!s);
+  if (mostrar) {
+    let filhos;
+    if (s) filhos = [h('button', { type: 'button', class: 'btn-fim', onclick: () => Sessao.finalizar() }, 'Finalizar treino')];
+    else {
+      const fin = Sessao.finalizadas().filter(o => o.data === UI.data && o.dia === UI.diaId).pop();
+      filhos = [fin && h('div', { class: 's-info' }, `Treino finalizado ✓ · ${fmtDuracao(fin.duracao_s)}`),
+        h('button', { type: 'button', class: fin ? '' : 'btn-pri', onclick: () => Sessao.iniciar(UI.diaId) }, 'Iniciar treino')];
+    }
+    bar.replaceChildren(...filhos.filter(Boolean));
+  }
+  document.documentElement.style.setProperty('--sessao-h', mostrar ? `${bar.offsetHeight}px` : '0px');
+}
+
+function perguntarSessaoEsquecida(s) {
+  const dlg = $('#dlg');
+  const fechar = () => (dlg.close ? dlg.close() : dlg.removeAttribute('open'));
+  const nome = diaPorId(s.dia)?.nome ?? 'Treino ' + s.dia;
+  dlg.replaceChildren(h('div', null,
+    h('h2', null, 'Esta sessão ainda está em andamento?'),
+    h('p', { class: 'muted' }, `${nome} começou em ${fmtData(s.inicio).slice(0, 5)} às ${fmtHora(s.inicio)}, há ${fmtDuracao(Sessao.decorrido(s))}.`),
+    h('button', { type: 'button', class: 'btn-pri btn-bloco', onclick: () => { fechar(); Sessao.finalizar(dataHoraLocal()); } }, 'Finalizar agora'),
+    h('button', { type: 'button', class: 'btn-bloco', onclick: () => { fechar(); Sessao.finalizar(Sessao.ultimaSerie(s.id) || dataHoraLocal(), true); } }, 'Ajustar o horário de término')));
+  if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
+}
+
+// Folha de fim de sessão; a mesma folha edita a sessão pelo Histórico.
+// Só a hora é editável: início fica na data da sessão; término no mesmo dia, ou no seguinte se for antes do início.
+function abrirFolhaSessao(id, { fim = false, focarFim = false } = {}) {
+  const s = Sessao.porId(id);
+  if (!s || s.fim == null) return;
+  const dlg = $('#dlg');
+  const fechar = () => (dlg.close ? dlg.close() : dlg.removeAttribute('open'));
+  let esforco = ehInt(s.esforco) ? s.esforco : null, dor = !!s.dor?.houve;
+
+  const botoesEsf = [];
+  const marcarEsf = () => botoesEsf.forEach((b, i) => { const on = esforco === i + 1; b.classList.toggle('ativo', on); b.setAttribute('aria-pressed', String(on)); });
+  const ANCORAS = { 1: 'muito, muito fácil', 3: 'moderado', 5: 'difícil', 7: 'muito difícil', 10: 'máximo' }; // TR-08 item 4 (Foster)
+  for (let n = 1; n <= 10; n++) botoesEsf.push(h('button', { type: 'button', 'aria-label': ANCORAS[n] ? `${n}, ${ANCORAS[n]}` : String(n),
+    onclick: () => { esforco = esforco === n ? null : n; marcarEsf(); } }, n));
+  marcarEsf();
+
+  const inDorObs = h('input', { type: 'text', autocomplete: 'off', placeholder: 'onde e como (opcional)', value: s.dor?.obs || '' });
+  const rotDorObs = h('label', { class: 'rotulo' }, 'Observação da dor', inDorObs);
+  const alertaDor = h('div', { class: 'aviso erro alerta-dor', role: 'alert' }, // TR-08 item 3
+    'Dor ou aperto no peito, falta de ar fora do normal, tontura ou desmaio: pare e procure atendimento médico.');
+  const bNao = h('button', { type: 'button', onclick: () => { dor = false; marcarDor(); } }, 'Não');
+  const bSim = h('button', { type: 'button', onclick: () => { dor = true; marcarDor(); } }, 'Sim');
+  const marcarDor = () => {
+    bNao.classList.toggle('ativo', !dor); bSim.classList.toggle('ativo', dor);
+    bNao.setAttribute('aria-pressed', String(!dor)); bSim.setAttribute('aria-pressed', String(dor));
+    rotDorObs.style.display = dor ? '' : 'none';
+    alertaDor.style.display = dor ? '' : 'none';
+  };
+  marcarDor();
+
+  const inObs = h('textarea', { rows: '2', placeholder: 'opcional', value: s.obs || '' });
+  inObs.style.fontFamily = 'inherit'; inObs.style.minHeight = '80px';
+  const inIni = h('input', { type: 'time', value: fmtHora(s.inicio), 'aria-label': 'Horário de início' });
+  const inFim = h('input', { type: 'time', value: fmtHora(s.fim), 'aria-label': 'Horário de término' });
+  const txtDur = h('p', { class: 'muted' });
+
+  const calcular = () => {
+    const hi = inIni.value.slice(0, 5), hf = inFim.value.slice(0, 5);
+    if (!/^\d{2}:\d{2}$/.test(hi) || !/^\d{2}:\d{2}$/.test(hf)) return { erro: 'Preencha o início e o término.' };
+    const [y, m, d] = partes(s.inicio);
+    const em = (hhmm, dias, seg) => { const [a, b] = hhmm.split(':').map(Number); return new Date(y, m - 1, d + dias, a, b, seg); };
+    const inicio = hi === fmtHora(s.inicio) ? s.inicio : dataHoraLocal(em(hi, 0, 0));
+    let fimIso = s.fim;
+    if (hf !== fmtHora(s.fim) || inicio !== s.inicio) {
+      const seg = hf === fmtHora(s.fim) ? Number(s.fim.slice(17, 19)) || 0 : 0;
+      let f = em(hf, 0, seg);
+      if (f.getTime() < Date.parse(inicio)) {
+        if (hf === fmtHora(inicio)) return { erro: 'O término precisa ser depois do início.' }; // mesmo minuto ≠ dia seguinte
+        f = em(hf, 1, seg);
+      }
+      fimIso = dataHoraLocal(f);
+    }
+    const dur = Math.round((Date.parse(fimIso) - Date.parse(inicio)) / 1000);
+    if (!(dur > 0)) return { erro: 'O término precisa ser depois do início.' };
+    return { inicio, fim: fimIso, duracao_s: dur };
+  };
+  const mostrarDur = () => { const c = calcular(); txtDur.textContent = c.erro || `Duração: ${fmtDuracao(c.duracao_s)}`; };
+  inIni.addEventListener('input', mostrarDur);
+  inFim.addEventListener('input', mostrarDur);
+  mostrarDur();
+
+  const salvar = () => {
+    const c = calcular();
+    if (c.erro) return toast(c.erro, 'erro');
+    Object.assign(s, { inicio: c.inicio, fim: c.fim, duracao_s: c.duracao_s, esforco,
+      dor: { houve: dor, obs: dor ? inDorObs.value.trim() : '' }, obs: inObs.value.trim() });
+    salvarSessoes(); fechar(); toast('Sessão salva'); render();
+  };
+  const apagar = () => {
+    if (!confirm('Apagar esta sessão?\n\nAs séries continuam no histórico; só perdem o vínculo com ela.')) return;
+    Sessao.apagar(s.id); fechar(); toast('Sessão apagada'); render();
+  };
+  dlg.replaceChildren(h('form', { method: 'dialog', onsubmit: e => e.preventDefault() },
+    h('h2', null, fim ? 'Treino finalizado' : 'Editar sessão'),
+    h('p', { class: 'muted' }, `${diaPorId(s.dia)?.nome ?? 'Treino ' + s.dia} · ${fmtData(s.data)} · semana ${s.semana}`),
+    h('div', { class: 'rot-grupo' }, 'Como foi o treino inteiro? Esforço de 1 a 10 (opcional)'),
+    h('div', { class: 'esforco', role: 'group', 'aria-label': 'Como foi o treino inteiro? Esforço de 1 a 10' }, botoesEsf),
+    h('p', { class: 'muted ancoras' }, '1 muito, muito fácil · 3 moderado · 5 difícil · 7 muito difícil · 10 máximo'),
+    h('div', { class: 'rot-grupo' }, 'Teve dor?'),
+    h('div', { class: 'seg-sn', role: 'group', 'aria-label': 'Teve dor?' }, bNao, bSim),
+    alertaDor,
+    rotDorObs,
+    h('label', { class: 'rotulo' }, 'Observação', inObs),
+    h('div', { class: 'horarios' }, h('label', { class: 'rotulo' }, 'Início', inIni), h('label', { class: 'rotulo' }, 'Término', inFim)),
+    txtDur,
+    h('div', { class: 'acoes' },
+      h('button', { type: 'button', class: 'btn-pri', onclick: salvar }, 'Salvar'),
+      h('button', { type: 'button', onclick: fechar }, fim ? 'Pular' : 'Cancelar')),
+    !fim && h('button', { type: 'button', class: 'btn-perigo btn-bloco', onclick: apagar }, 'Apagar sessão')));
+  if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
+  if (focarFim) setTimeout(() => { inFim.focus(); inFim.scrollIntoView?.({ block: 'center' }); }, 50);
+}
+
+/* ==========================================================================
+   PROGRESSÃO — 1.2.0 (TR-03 a TR-09: dupla progressão, esforço, dor e pausa)
+   Só sugere: nada é gravado, a carga e a semana nunca mudam sozinhas.
+   Última sessão do exercício = registros com data anterior à da tela, na data mais recente (como em prefill()).
+   ========================================================================== */
+const INCREMENTO_PADRAO_KG = 2.5;
+const DIAS_PAUSA_LONGA = 28;
+const TXT_SALTO = 'Salto acima de 10%. Sem peso intermediário, fique na carga atual e some 1 ou 2 repetições acima da faixa antes de subir.';
+const incrementoDe = x => (ehNum(x.incremento_kg) && x.incremento_kg > 0 ? x.incremento_kg : INCREMENTO_PADRAO_KG); // TR-04
+const arred2 = n => Math.round(n * 100) / 100;
+const ddmm = iso => fmtData(iso).slice(0, 5);
+
+function dorNasDuasUltimas() { // TR-08: as duas últimas sessões finalizadas (de qualquer dia) com dor → a mais recente
+  const f = Sessao.finalizadas().slice().sort((a, b) => Date.parse(b.inicio) - Date.parse(a.inicio));
+  return f.length >= 2 && f[0].dor?.houve && f[1].dor?.houve ? f[0] : null;
+}
+
+// → null (sem sugestão) ou { tipo: aumentar|manter|reduzir|retorno|dominada|nenhuma, texto, carga? }
+function estadoProgressao(x, dataTela) {
+  const doEx = S.registros.filter(r => r.exercicio === x.id && typeof r.data === 'string' && r.data < dataTela);
+  if (!doEx.length) return null;
+  const datas = [...new Set(doEx.map(r => r.data))].sort();
+  const seriesDe = d => { // séries 1..x.series da data d (acima de x.series são ignoradas)
+    const m = new Map();
+    for (const r of doEx) if (r.data === d && ehInt(r.serie) && r.serie >= 1 && r.serie <= x.series) m.set(r.serie, r);
+    return [...m.values()];
+  };
+  const dUlt = datas[datas.length - 1], ult = seriesDe(dUlt);
+  if (ult.length < x.series) return null; // TR-03 regra 1: sessão incompleta
+
+  const ehTempo = x.tipo === 'tempo';
+  const campo = ehTempo ? 'duracao_s' : 'reps', faixa = ehTempo ? x.duracao_s : x.reps;
+  const [piso, topo] = faixa, un = ehTempo ? ' s' : '';
+  const todasNoTopo = ult.every(r => ehNum(r[campo]) && r[campo] >= topo);
+  const abaixoPiso = ss => ss.some(r => ehNum(r[campo]) && r[campo] < piso);
+
+  // Sessões vinculadas (sessao_id); registro sem vínculo = esforço e dor desconhecidos
+  const sess = [...new Set(ult.map(r => r.sessao_id).filter(Boolean))].map(id => Sessao.porId(id)).filter(s => s && s.fim != null);
+  const esforcos = sess.map(s => s.esforco).filter(ehInt);
+  const esforco = esforcos.length ? Math.max(...esforcos) : null;
+  const notaEsf = esforco == null ? ' (esforço não registrado)' : '';
+  const dor = sess.find(s => s.dor?.houve) || dorNasDuasUltimas(); // TR-08 itens 1 e 2
+  const pausa = diasEntre(dUlt, dataTela), semanasPausa = Math.floor(pausa / 7);
+  const pausaLonga = pausa > DIAS_PAUSA_LONGA; // TR-09
+
+  // TR-06: sem carga (com_carga false, ou campo ausente e nenhuma carga registrada) → progride por repetições/tempo
+  const comCarga = typeof x.com_carga === 'boolean' ? x.com_carga : null; // fora do formato = ausente
+  if (comCarga === false || (comCarga == null && ult.every(r => r.carga_kg == null))) {
+    if (pausaLonga) return { tipo: 'manter', texto: `Retorno após ${semanasPausa} semanas: não aumente hoje.` };
+    if (dor) return { tipo: 'manter', texto: `Dor registrada em ${ddmm(dor.data)}: mantenha.` };
+    if (!todasNoTopo) return { tipo: 'manter', texto: `Busque ${topo}${un} em todas as séries.` };
+    if (esforco > 8) return { tipo: 'manter', texto: `Esforço ${esforco} na última sessão: mantenha.` };
+    return { tipo: 'dominada', texto: `Faixa dominada. Próximo passo é decisão sua: variação mais difícil ou carga extra.${notaEsf}` };
+  }
+
+  // TR-03 regra 3: carga faltando ou diferente entre séries → sem sugestão, com o motivo
+  const cargas = ult.map(r => r.carga_kg);
+  if (cargas.some(c => !ehNum(c))) return { tipo: 'nenhuma', texto: 'Registre a carga para receber sugestão.' };
+  if (new Set(cargas).size > 1) return { tipo: 'nenhuma', texto: 'Cargas diferentes entre séries: sem sugestão.' };
+  const C = cargas[0], inc = incrementoDe(x);
+
+  if (pausaLonga) { // TR-09: ~90% da última carga, para baixo em passos de 0,5 kg
+    const c90 = Math.floor(C * 0.9 * 2) / 2;
+    return { tipo: 'retorno', carga: c90, texto: `Retorno após ${semanasPausa} semanas: comece perto de 90% da última carga (≈ ${fmtKg(c90)} kg) e não aumente hoje.` };
+  }
+  if (piso < topo && arred2(C - inc) > 0 && datas.length >= 2) { // TR-05: duas sessões abaixo do piso, mesma carga
+    const ant = seriesDe(datas[datas.length - 2]);
+    if (ant.length && ant.every(r => r.carga_kg === C) && abaixoPiso(ult) && abaixoPiso(ant))
+      return { tipo: 'reduzir', carga: arred2(C - inc), texto: `Duas sessões abaixo de ${piso}${ehTempo ? ' s' : ' repetições'} com ${fmtKg(C)} kg. Considere reduzir para ${fmtKg(arred2(C - inc))} kg.` };
+  }
+  if (dor) return { tipo: 'manter', texto: `Dor registrada em ${ddmm(dor.data)}: mantenha a carga.` };
+  if (!todasNoTopo) return { tipo: 'manter', texto: `Manter ${fmtKg(C)} kg: busque ${topo}${un} em todas as séries.` };
+  if (esforco > 8) return { tipo: 'manter', texto: `Manter ${fmtKg(C)} kg: esforço ${esforco} na última sessão.` };
+  const novo = arred2(C + inc), pct = Math.round((inc / C) * 100); // TR-04
+  return { tipo: 'aumentar', carga: novo,
+    texto: `Aumentar para ${fmtKg(novo)} kg (+${fmtKg(inc)} kg, ${pct}%)${notaEsf}.${pct > 10 ? ' ' + TXT_SALTO : ''}` };
+}
+
+// TR-07: "Usar C kg" só preenche o campo de kg das séries pendentes (rascunho); nada é registrado
+function usarCarga(x, dia, data, carga) {
+  for (let n = 1; n <= x.series; n++) {
+    if (S.registros.some(r => r.data === data && r.dia === dia.id && r.exercicio === x.id && r.serie === n)) continue;
+    const chave = `${data}|${dia.id}|${x.id}|${n}`;
+    const rasc = UI.rascunhos[chave] || prefill(x, dia, data, n);
+    UI.rascunhos[chave] = { a: rasc.a, b: fmtKg(carga) };
+  }
+  render();
+}
+
+function linhaSugestao(x, dia, data) {
+  const e = estadoProgressao(x, data);
+  if (!e) return null;
+  return h('div', { class: 'sugestao ' + e.tipo, role: 'note' },
+    h('span', null, e.texto),
+    e.carga != null && h('button', { type: 'button', class: 'chip', onclick: () => usarCarga(x, dia, data, e.carga) }, `Usar ${fmtKg(e.carga)} kg`));
+}
 
 /* ==========================================================================
    TIMER DE DESCANSO (som, vibração, tela acesa)
@@ -895,16 +1326,16 @@ function descreverCorrida(s) {
   if (s.modo === 'continuo') return `${fmtMin(s.correr_min)} correndo sem parar`;
   return `${fmtMin(s.correr_min)} correndo / ${fmtMin(s.andar_min)} andando × ${s.repeticoes}`;
 }
-function cardCorrida(x, semana) {
+function cardCorrida(x, semana, bruta = semana) {
   const b = blocoCorrida(x);
   const s = b?.semanas.find(o => o.semana === semana);
   const ultima = b ? Math.max(...b.semanas.map(o => o.semana)) : 0;
   let corpo;
-  if (s) corpo = [
+  if (b && Math.max(semana, bruta) > ultima && b.pos_semana_12) corpo = [h('div', { class: 'corrida-desc' }, b.pos_semana_12)]; // TR-01
+  else if (s) corpo = [
     h('div', { class: 'corrida-desc' }, descreverCorrida(s)),
     h('p', { class: 'muted' }, `Total ${fmtMin(totalCorridaMin(s))}${b.intensidade ? ' · ' + b.intensidade : ''}`),
     s.alivio && h('span', { class: 'tag warn' }, 'semana de alívio')];
-  else if (b && semana > ultima && b.pos_semana_12) corpo = [h('div', { class: 'corrida-desc' }, b.pos_semana_12)];
   else corpo = [h('p', { class: 'muted' }, `Sem prescrição de corrida para a semana ${semana}.`)];
   return h('section', { class: 'card ex' },
     h('div', { class: 'ex-cab' }, h('h3', null, x.nome), h('span', { class: 'muted' }, `semana ${semana}`)),
@@ -923,7 +1354,7 @@ function viewHistorico() {
   const els = [h('h1', null, 'Histórico'),
     h('div', { class: 'seg' }, [['data', 'Por data'], ['ex', 'Por exercício']].map(([v, t]) =>
       h('button', { type: 'button', class: UI.histModo === v ? 'ativo' : '', onclick: () => { UI.histModo = v; render(false); } }, t)))];
-  if (!S.registros.length) {
+  if (!S.registros.length && !Sessao.finalizadas().length) {
     els.push(h('div', { class: 'card muted' }, 'Nenhuma série registrada ainda.'));
     return els;
   }
@@ -937,17 +1368,22 @@ function ordemNoDia(diaId) {
 }
 
 function histPorData() {
-  const grupos = agrupar(S.registros, r => `${r.data}|${r.dia}`)
+  const sessPorChave = new Map(agrupar(Sessao.finalizadas(), s => `${s.data}|${s.dia}`));
+  const porChave = new Map(agrupar(S.registros, r => `${r.data}|${r.dia}`));
+  for (const k of sessPorChave.keys()) if (!porChave.has(k)) porChave.set(k, []); // sessão sem série também aparece
+  const grupos = [...porChave.entries()]
     .sort(([a], [b]) => (a.slice(0, 10) === b.slice(0, 10) ? a.localeCompare(b) : b.localeCompare(a)));
   return grupos.map(([k, regs]) => {
     const [data, diaId] = k.split('|');
     const dia = diaPorId(diaId);
     const ordem = ordemNoDia(diaId);
-    const semanas = [...new Set(regs.map(r => r.semana))].join('/');
+    const sess = (sessPorChave.get(k) || []).sort((a, b) => Date.parse(a.inicio) - Date.parse(b.inicio));
+    const semanas = [...new Set([...regs, ...sess].map(r => r.semana))].join('/');
     const porEx = agrupar(regs, r => r.exercicio).sort(([a], [b]) => ordem(a) - ordem(b));
     return h('section', { class: 'card' },
       h('h3', null, `${cap(NOMES_DIA_CURTO[diaDaSemana(data)])}, ${fmtData(data)}`),
-      h('p', { class: 'muted' }, `${dia ? dia.nome : 'Dia ' + diaId} · semana ${semanas} · ${regs.length} série${regs.length > 1 ? 's' : ''}`),
+      h('p', { class: 'muted' }, `${dia ? dia.nome : 'Dia ' + diaId} · semana ${semanas} · ${regs.length} série${regs.length !== 1 ? 's' : ''}`),
+      sess.map(blocoSessaoHist),
       porEx.map(([exId, rs]) => h('div', { class: 'hist-ex' },
         h('div', { class: 'hist-nome' }, nomeExercicio(exId)),
         h('div', { class: 'chips' }, rs.sort((a, b) => a.serie - b.serie).map(r =>
@@ -956,6 +1392,15 @@ function histPorData() {
         UI.data = data; UI.dataManual = data !== hoje(); UI.diaId = dia ? diaId : diaPadrao(data); irPara('hoje');
       } }, 'Abrir este dia na tela Hoje'));
   });
+}
+
+function blocoSessaoHist(s) {
+  const dor = s.dor?.houve ? `Dor: sim${s.dor.obs ? ' — ' + s.dor.obs : ''}` : 'Dor: não';
+  return h('div', { class: 'hist-sessao' },
+    h('div', { class: 'hist-nome' }, `Sessão ${fmtHora(s.inicio)}–${fmtHora(s.fim)} · ${fmtDuracao(s.duracao_s)}`),
+    h('p', { class: 'muted' }, `Esforço: ${s.esforco != null ? s.esforco + '/10' : '—'} · ${dor}`),
+    s.obs && h('p', { class: 'muted' }, s.obs),
+    h('button', { type: 'button', class: 'chip', onclick: () => abrirFolhaSessao(s.id) }, 'Editar sessão'));
 }
 
 function histPorExercicio() {
@@ -994,8 +1439,9 @@ function histPorExercicio() {
    BACKUP (exportar/importar tudo em JSON; aviso após 14 dias sem exportar)
    ========================================================================== */
 function montarBackup() {
-  return { app: APP_ID, tipo: 'backup', versao_backup: 1, versao_app: APP_VERSAO, exportado_em: dataHoraLocal(),
-    plano: S.plano, config: S.config, registros: S.registros };
+  // versao_backup 2 (1.1.0): + "sessoes". Backup 1 (sem sessoes) continua restaurando.
+  return { app: APP_ID, tipo: 'backup', versao_backup: 2, versao_app: APP_VERSAO, exportado_em: dataHoraLocal(),
+    plano: S.plano, config: S.config, registros: S.registros, sessoes: S.sessoes };
 }
 function arquivoBackup() {
   return { json: JSON.stringify(montarBackup(), null, 2), nome: `treino-backup-${hoje()}.json` };
@@ -1064,6 +1510,20 @@ function validarBackup(b) {
     if (v.erros.length) erros.push(`o plano dentro do backup é inválido: ${v.erros.slice(0, 3).join(' | ')}`);
   }
   if (b.config != null && (typeof b.config !== 'object' || Array.isArray(b.config))) erros.push('"config" deve ser um objeto.');
+  if (b.sessoes != null && !Array.isArray(b.sessoes)) erros.push('"sessoes" deve ser uma lista.');
+  else if (b.sessoes) b.sessoes.forEach((s, i) => {
+    if (erros.length >= 10) return;
+    const p = [];
+    if (!s || typeof s !== 'object') p.push('não é objeto');
+    else {
+      if (typeof s.id !== 'string' || !s.id) p.push('id');
+      if (typeof s.data !== 'string' || !RE_DATA.test(s.data)) p.push('data');
+      if (typeof s.dia !== 'string') p.push('dia');
+      if (typeof s.inicio !== 'string' || Number.isNaN(Date.parse(s.inicio))) p.push('inicio');
+      if (s.fim != null && (typeof s.fim !== 'string' || Number.isNaN(Date.parse(s.fim)))) p.push('fim');
+    }
+    if (p.length) erros.push(`sessoes[${i}]: campo(s) inválido(s): ${p.join(', ')}.`);
+  });
   return erros;
 }
 
@@ -1071,7 +1531,8 @@ function importarBackup(b, saida) {
   const erros = validarBackup(b);
   if (erros.length) return mostrarErros(saida, 'O backup não foi restaurado:', erros);
   const quando = typeof b.exportado_em === 'string' ? fmtData(b.exportado_em) : 'data desconhecida';
-  if (!confirm(`Restaurar o backup de ${quando} com ${b.registros.length} registro(s)?\n\nIsso SUBSTITUI tudo o que está no app agora (${S.registros.length} registro(s)).`)) return;
+  const nSess = Array.isArray(b.sessoes) ? b.sessoes.length : 0;
+  if (!confirm(`Restaurar o backup de ${quando} com ${b.registros.length} registro(s) e ${nSess} sessão(ões)?\n\nIsso SUBSTITUI tudo o que está no app agora (${S.registros.length} registro(s) e ${S.sessoes.length} sessão(ões)).`)) return;
 
   S.plano = b.plano ?? S.plano;
   S.config = Object.assign({}, CONFIG_PADRAO, b.config || {});
@@ -1083,11 +1544,15 @@ function importarBackup(b, saida) {
     if (!n.tipo) n.tipo = n.duracao_s != null ? 'tempo' : (n.reps != null ? 'forca' : n.tipo);
     return n;
   });
-  const ok = salvarPlano() & salvarConfig() & salvarRegistros();
+  S.sessoes = Array.isArray(b.sessoes) ? b.sessoes.map(s => Object.assign({}, s)) : []; // backup 1.0.0: sem sessões
+  const ok = salvarPlano() & salvarConfig() & salvarRegistros() & salvarSessoes();
   UI.rascunhos = {};
   UI.diaId = diaPadrao(UI.data);
+  UI.perguntouSessao = null;
+  if (Sessao.emAndamento()) Sessao.rodar(); else Sessao.parar();
   toast(ok ? 'Backup restaurado ✓' : 'Backup lido, mas houve erro ao salvar.', ok ? '' : 'erro');
   irPara('hoje');
+  Sessao.verificarEsquecida();
 }
 
 /* ==========================================================================
@@ -1193,7 +1658,7 @@ function viewAjustes() {
     h('p', null, S.config.ultimo_export
       ? `Último backup: ${fmtData(S.config.ultimo_export)} (${d === 0 ? 'hoje' : `há ${d} dia${d > 1 ? 's' : ''}`}).`
       : 'Nenhum backup exportado ainda.'),
-    h('p', { class: 'muted' }, `Leva plano, ajustes e ${S.registros.length} registro(s). Guarde fora do celular (Drive, e-mail, computador).`),
+    h('p', { class: 'muted' }, `Leva plano, ajustes, ${S.registros.length} registro(s) e ${S.sessoes.length} sessão(ões). Guarde fora do celular (Drive, e-mail, computador).`),
     h('button', { type: 'button', class: 'btn-pri btn-bloco', onclick: baixarBackup }, 'Baixar backup (.json)'),
     podeCompartilharArquivo() && h('button', { type: 'button', class: 'btn-bloco', onclick: compartilharBackup }, 'Compartilhar / salvar em…'),
     h('details', null, h('summary', null, 'Restaurar backup'),
@@ -1229,9 +1694,9 @@ function viewAjustes() {
 function apagarTudo() {
   if (!confirm('Apagar plano, ajustes e TODOS os registros deste aparelho?')) return;
   if (!confirm('Tem certeza? Sem backup, não dá para recuperar.')) return;
-  Timer.parar();
+  Timer.parar(); Sessao.parar();
   Object.values(CHAVES).forEach(k => Armaz.apagar(k));
-  S.plano = null; S.config = Object.assign({}, CONFIG_PADRAO); S.registros = [];
+  S.plano = null; S.config = Object.assign({}, CONFIG_PADRAO); S.registros = []; S.sessoes = [];
   UI.rascunhos = {}; UI.aba = 'hoje';
   toast('Dados apagados');
   render(false);
@@ -1252,6 +1717,7 @@ function render(manterScroll = true) {
   $('#main').replaceChildren(...[].concat(conteudo).filter(Boolean));
   $('#nav').hidden = !S.plano;
   for (const b of document.querySelectorAll('#nav button')) b.classList.toggle('ativo', b.dataset.aba === UI.aba);
+  desenharBarraSessao();
   Timer.desenhar();
   if (UI.secaoAlvo) {
     const alvo = document.getElementById(UI.secaoAlvo);
@@ -1282,6 +1748,8 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   if (Tela.quer) Tela.manter(true);
   Timer.tick();
+  Sessao.tick();
+  Sessao.verificarEsquecida();
   if (!UI.dataManual && UI.data !== hoje()) { UI.data = hoje(); UI.diaId = diaPadrao(UI.data); render(); } // virou o dia com o app aberto
   if (UI.swReg && Date.now() - ultimaChecagemSW > 30 * 60 * 1000) { ultimaChecagemSW = Date.now(); UI.swReg.update().catch(() => {}); }
 });
@@ -1303,7 +1771,9 @@ document.addEventListener('visibilitychange', () => {
     if (!Timer.st.inicio || Timer.decorrido() > Timer.st.max + 180) Timer.parar();
     else { Tela.manter(true); Timer.rodar(); }
   }
+  if (Sessao.emAndamento()) Sessao.rodar(); // sessão em andamento sobrevive a fechar o app e reiniciar o celular
   render(false);
+  Sessao.verificarEsquecida();
   pedirPersistencia().then(() => { if (UI.aba === 'ajustes') render(); });
   registrarSW();
 })();
