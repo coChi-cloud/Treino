@@ -1,14 +1,16 @@
 /* Service worker do app Treino
    - Guarda os arquivos do app no cache para funcionar offline.
    - IMPORTANTE: ao publicar qualquer mudança no app, troque VERSAO abaixo
-     (ex.: 'treino-v1.0.1'). É assim que o celular percebe a atualização. */
-const VERSAO = 'treino-v1.2.0';
+     (ex.: 'treino-v1.3.1'). É assim que o celular percebe a atualização.
+   - A versão nova se ativa sozinha; o app recarrega quando não há treino em andamento. */
+const VERSAO = 'treino-v1.3.0';
 const ARQUIVOS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', evento => {
   // cache: 'reload' ignora o cache HTTP do servidor e baixa a versão nova de verdade
   evento.waitUntil(
     caches.open(VERSAO).then(cache => cache.addAll(ARQUIVOS.map(u => new Request(u, { cache: 'reload' }))))
+      .then(() => self.skipWaiting()) // 1.3.0: a versão nova assume sozinha; a página decide quando recarregar
   );
 });
 
