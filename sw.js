@@ -3,7 +3,7 @@
    - IMPORTANTE: ao publicar qualquer mudança no app, troque VERSAO abaixo
      (ex.: 'treino-v1.3.1'). É assim que o celular percebe a atualização.
    - A versão nova se ativa sozinha; o app recarrega quando não há treino em andamento. */
-const VERSAO = 'treino-v1.3.0';
+const VERSAO = 'treino-v1.3.1';
 const ARQUIVOS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', evento => {
