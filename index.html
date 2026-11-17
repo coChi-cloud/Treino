@@ -177,6 +177,39 @@ details[open]>summary::before{transform:rotate(45deg)}
 .resumo .rs-v{font-size:17px;font-variant-numeric:tabular-nums}
 
 /* corrida */
+/* 1.4.0: corrida livre e relógio */
+.btn-relogio{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin-top:12px;min-height:52px;border-radius:16px;background:rgba(255,255,255,.06);border:1px solid var(--borda2);font-weight:600}
+.btn-relogio svg{width:20px;height:20px;flex:none}
+.btn-relogio:disabled{opacity:.5}
+.cr-info p{margin:10px 0 0;font-size:14px;line-height:1.4}
+.cr-grade{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cr-grade.tres{grid-template-columns:1fr 1fr 1fr}
+.cr-grade input{font-family:var(--num);font-size:24px;text-align:center}
+.cr-pace{display:flex;align-items:baseline;gap:10px;margin-top:12px;padding:12px 14px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)}
+.cr-pace>span:first-child{color:var(--muted);font-size:14px;font-weight:600}
+.cr-pace b{font-family:var(--num);font-size:28px;font-weight:500;line-height:1}
+.cr-pace .muted{margin-left:auto;font-size:13px}
+.cr-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0 4px}
+.cr-stat{padding:10px 12px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);min-width:0}
+.cr-stat span{display:block;color:var(--muted);font-size:12px;font-weight:600}
+.cr-stat b{display:block;font-family:var(--num);font-size:30px;font-weight:500;line-height:1.1;margin-top:2px;white-space:nowrap}
+.cr-stat b small{font-size:15px;color:var(--muted);margin-left:3px;font-family:inherit}
+.cr-stat em{display:block;font-style:normal;color:var(--muted);font-size:12px}
+.cr-extra{margin:8px 0 0;font-size:14px}
+.cr-graf-box{margin-top:14px;padding:12px 12px 6px;border-radius:18px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)}
+.cr-grafico{display:block;width:100%;height:auto;margin-top:6px}
+.cr-grade-l{stroke:rgba(255,255,255,.08);stroke-width:1}
+.cr-eixo{fill:var(--muted2);font-size:11px;font-family:inherit}
+.cr-linha{fill:none;stroke:var(--txt);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.cr-ponto{fill:var(--txt);stroke:#151517;stroke-width:2}
+.cr-ponto.ultimo{fill:var(--vivo)}
+.cr-alvo{fill:transparent;cursor:pointer;outline:none}
+.cr-dica{font-size:13px;margin:4px 0 6px;min-height:18px}
+.fim-linha{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 10px}
+.fim-linha .fim-info{margin:0}
+.chip-rel{min-height:40px;padding:6px 12px;font-size:13px}
+.sec-rel{margin-top:18px;padding-top:6px;border-top:1px solid rgba(255,255,255,.08)}
+button.link{background:none;border:0;padding:0;min-height:0;color:var(--txt);text-decoration:underline;font-size:14px;font-weight:600}
 .corrida-desc{font-family:var(--num);font-size:34px;line-height:1.05;font-weight:500;margin:10px 0}
 .segmentos{display:flex;gap:3px;margin:2px 0 10px}
 .segmentos i{height:10px;border-radius:3px;background:rgba(255,255,255,.16)}
@@ -308,7 +341,7 @@ dialog h2{font-size:24px;letter-spacing:-.03em}
    CONFIGURAÇÃO GERAL
    ========================================================================== */
 const APP_ID = 'treino-pwa';
-const APP_VERSAO = '1.3.5';
+const APP_VERSAO = '1.4.0';
 const CHAVES = {
   plano: 'treino.plano.v1',
   config: 'treino.config.v1',
@@ -436,7 +469,9 @@ const UI = {
   avisosImport: null, planoInvalido: null, erroGravacao: false,
   persistido: undefined, swReg: null, swEsperando: null, atualizando: false,
   secaoAlvo: null,
-  rolarProximo: false,      // 1.3.3: depois do render, rola até o próximo exercício pendente
+  rolarProximo: false,
+  editCorrida: null,        // 1.4.0: "data|dia" da corrida aberta para edição
+  importCorrida: null,      // 1.4.0: arquivo do relógio lido para outra data, aplicado depois de trocar a data      // 1.3.3: depois do render, rola até o próximo exercício pendente
   perguntouSessao: null,    // id da sessão esquecida já perguntada nesta abertura
   manterSemana: false       // TR-02: "Manter semana N" esconde o aviso de pausa até fechar o app
 };
@@ -805,11 +840,15 @@ function viewHoje() {
     h('div', { class: 'hero-chips' },
       nEx > 0 && h('span', { class: 'pilula' }, `${nEx} exercício${nEx > 1 ? 's' : ''}`),
       previstas > 0 && h('span', { class: 'pilula' }, `${previstas} séries`),
-      grupos.length > 0 && h('span', { class: 'pilula' }, grupos.slice(0, 3).map(nomeGrupo).join(' · '))),
+      grupos.length > 0 && h('span', { class: 'pilula' }, grupos.slice(0, 3).map(nomeGrupo).join(' · ')),
+      dia.exercicios.some(x => x.tipo === 'corrida') && h('span', { class: 'pilula' }, corridaDoDia(data, dia.id) ? 'Corrida ✓' : 'Corrida')),
     previstas > 0 && (feitas > 0 || emAndamentoAqui) && h('div', { class: 'progresso' },
       h('div', { class: 'linha' }, h('span', null, 'Progresso'), h('b', null, `${feitas} de ${previstas} séries`)),
       h('div', { class: 'barra' }, h('i', { style: `width:${Math.min(100, Math.round((feitas / previstas) * 100))}%` }))),
-    fin && !sAnd && h('p', { class: 'fim-info' }, `Treino finalizado ✓ · ${fmtDuracao(fin.duracao_s)}`),
+    fin && !sAnd && h('div', { class: 'fim-linha' },
+      h('p', { class: 'fim-info' }, `Treino finalizado ✓ · ${fmtDuracao(fin.duracao_s)}${fin.sessao_relogio?.fc_media != null ? ' · FC ' + fin.sessao_relogio.fc_media : ''}`),
+      h('button', { type: 'button', class: 'chip chip-rel', onclick: () => abrirFolhaSessao(fin.id, { focarRelogio: true }) },
+        fin.sessao_relogio ? 'Relógio ✓' : 'Dados do relógio')),
     !sAnd && ehHoje && h('button', { type: 'button', class: 'btn-iniciar' + (fin ? '' : ' btn-pri'), onclick: () => Sessao.iniciar(dia.id) },
       !fin && h('span', { class: 'play', 'aria-hidden': 'true' }, svg('M7 4l13 8-13 8z', { cheio: true })),
       'Iniciar treino')));
@@ -817,7 +856,7 @@ function viewHoje() {
   // Avisos
   if (dorNasDuasUltimas()) els.push(h('div', { class: 'aviso warn', role: 'alert' }, // TR-08 item 2
     h('b', null, 'Dor registrada nas duas últimas sessões. '),
-    'Dor que persiste deve ser avaliada por um profissional de saúde (médico ou fisioterapeuta). Enquanto isso, o app não sugere aumento de carga nem de semana de corrida.'));
+    'Dor que persiste deve ser avaliada por um profissional de saúde (médico ou fisioterapeuta). Enquanto isso, o app não sugere aumento de carga.'));
   if (UI.avisosImport) els.push(h('div', { class: 'aviso warn' }, h('b', null, 'Plano importado, com avisos:'),
     h('ul', null, UI.avisosImport.map(a => h('li', null, a))),
     h('button', { type: 'button', onclick: () => { UI.avisosImport = null; render(); } }, 'Entendi')));
@@ -837,7 +876,7 @@ function viewHoje() {
     if (x.tipo === 'forca' || x.tipo === 'tempo') els.push(cardExercicio(x, dia, data, semana));
     else if (x.tipo === 'aquecimento') els.push(h('section', { class: 'card ex aquec' },
       h('div', { class: 'ex-cab' }, h('h3', null, x.nome), h('span', { class: 'muted' }, fmtMin(x.duracao_min)))));
-    else if (x.tipo === 'corrida') els.push(cardCorrida(x, semana, semanaBruta(data)));
+    else if (x.tipo === 'corrida') els.push(cardCorrida(x, dia, data));
   }
   if (previstas > 0 && feitas >= previstas) els.push(h('div', { class: 'aviso ok' }, h('b', null, 'Treino completo ✓ '), 'Todas as séries registradas.'));
   return els;
@@ -1141,7 +1180,7 @@ function perguntarSessaoEsquecida(s) {
 
 // Folha de fim de sessão; a mesma folha edita a sessão pelo Histórico.
 // Só a hora é editável: início fica na data da sessão; término no mesmo dia, ou no seguinte se for antes do início.
-function abrirFolhaSessao(id, { fim = false, focarFim = false } = {}) {
+function abrirFolhaSessao(id, { fim = false, focarFim = false, focarRelogio = false } = {}) {
   const s = Sessao.porId(id);
   if (!s || s.fim == null) return;
   const dlg = $('#dlg');
@@ -1200,9 +1239,49 @@ function abrirFolhaSessao(id, { fim = false, focarFim = false } = {}) {
   inFim.addEventListener('input', mostrarDur);
   mostrarDur();
 
+  // 1.4.0: dados do relógio (manual ou importados do arquivo do treino)
+  let rel = s.sessao_relogio && typeof s.sessao_relogio === 'object' ? Object.assign({}, s.sessao_relogio) : null;
+  const campoN = (ph, rotulo, v) => h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: ph, 'aria-label': rotulo, value: v ?? '' });
+  const inRFcm = campoN('130', 'FC média', rel?.fc_media), inRFcx = campoN('165', 'FC máxima', rel?.fc_max), inRCal = campoN('450', 'Calorias', rel?.calorias);
+  const infoRel = h('div', { class: 'cr-info' });
+  if (rel?.inicio || rel?.duracao_s) infoRel.append(h('p', { class: 'muted' }, `Relógio${rel.fonte && rel.fonte !== 'manual' ? ' (' + rel.fonte.toUpperCase() + ')' : ''}: ` +
+    [rel.inicio && `início ${fmtHora(rel.inicio)}`, rel.duracao_s && fmtDuracao(rel.duracao_s)].filter(Boolean).join(' · ')));
+  const btnRel = botaoRelogio('Importar arquivo do relógio', res => {
+    rel = { fonte: res.fonte, inicio: res.inicio, duracao_s: res.decorrido_s ?? res.duracao_s, distancia_km: res.distancia_km };
+    if (res.fc_media != null) inRFcm.value = res.fc_media;
+    if (res.fc_max != null) inRFcx.value = res.fc_max;
+    if (res.calorias != null) inRCal.value = res.calorias;
+    const itens = [res.inicio && `início ${fmtHora(res.inicio)}`, rel.duracao_s && fmtDuracao(rel.duracao_s), res.fc_media != null && `FC ${res.fc_media}`,
+      res.calorias != null && `${res.calorias} kcal`].filter(Boolean);
+    infoRel.replaceChildren(h('p', null, h('b', null, `Lido do relógio (${res.fonte.toUpperCase()}): `), itens.join(' · ')));
+    if (res.esporte === 'corrida' || res.esporte === 'caminhada') infoRel.append(h('p', { class: 'muted' }, `O arquivo parece ser de ${NOME_ESPORTE[res.esporte]}. Para corrida, use o cartão da corrida.`));
+    if (res.data && res.data !== s.data) infoRel.append(h('p', { class: 'muted' }, `Atenção: o arquivo é de ${fmtData(res.data)} e esta sessão é de ${fmtData(s.data)}.`));
+    else if (res.inicio && rel.duracao_s) infoRel.append(h('button', { type: 'button', class: 'link', onclick: () => {
+      inIni.value = fmtHora(res.inicio);
+      inFim.value = fmtHora(dataHoraLocal(new Date(Date.parse(res.inicio) + rel.duracao_s * 1000)));
+      mostrarDur();
+    } }, 'Usar o início e o término do relógio'));
+  });
+  const secRel = h('div', { class: 'sec-rel' },
+    h('div', { class: 'rot-grupo' }, 'Relógio (opcional)'),
+    btnRel, infoRel,
+    h('div', { class: 'cr-grade tres' },
+      h('label', { class: 'rotulo' }, 'FC média', inRFcm), h('label', { class: 'rotulo' }, 'FC máx.', inRFcx), h('label', { class: 'rotulo' }, 'kcal', inRCal)));
+  const lerRelogio = () => {
+    const fm = lerNumero(inRFcm.value), fx = lerNumero(inRFcx.value), cal = lerNumero(inRCal.value);
+    for (const [v, n] of [[fm, 'FC média'], [fx, 'FC máxima']]) if (Number.isNaN(v) || (v != null && !(ehInt(v) && v >= 30 && v <= 240))) return { erro: `${n} do relógio inválida (de 30 a 240).` };
+    if (Number.isNaN(cal) || (cal != null && !(ehInt(cal) && cal > 0 && cal < 10000))) return { erro: 'Calorias inválidas.' };
+    if (fm != null && fx != null && fm > fx) return { erro: 'A FC média não pode passar da máxima.' };
+    const tem = fm != null || fx != null || cal != null || rel?.duracao_s != null;
+    return { valor: tem ? Object.assign({ fonte: 'manual', inicio: null, duracao_s: null, distancia_km: null }, rel || {}, { fc_media: fm, fc_max: fx, calorias: cal }) : null };
+  };
+
   const salvar = () => {
     const c = calcular();
     if (c.erro) return toast(c.erro, 'erro');
+    const rl = lerRelogio();
+    if (rl.erro) return toast(rl.erro, 'erro');
+    s.sessao_relogio = rl.valor;
     Object.assign(s, { inicio: c.inicio, fim: c.fim, duracao_s: c.duracao_s, esforco,
       dor: { houve: dor, obs: dor ? inDorObs.value.trim() : '' }, obs: inObs.value.trim() });
     salvarSessoes(); fechar(); toast('Sessão salva'); render();
@@ -1224,12 +1303,14 @@ function abrirFolhaSessao(id, { fim = false, focarFim = false } = {}) {
     h('label', { class: 'rotulo' }, 'Observação', inObs),
     h('div', { class: 'horarios' }, h('label', { class: 'rotulo' }, 'Início', inIni), h('label', { class: 'rotulo' }, 'Término', inFim)),
     txtDur,
+    secRel,
     h('div', { class: 'acoes' },
       h('button', { type: 'button', class: 'btn-pri', onclick: salvar }, 'Salvar'),
       h('button', { type: 'button', onclick: fechar }, fim ? 'Pular' : 'Cancelar')),
     !fim && h('button', { type: 'button', class: 'btn-perigo btn-bloco', onclick: apagar }, 'Apagar sessão')));
   if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
   if (focarFim) setTimeout(() => { inFim.focus(); inFim.scrollIntoView?.({ block: 'center' }); }, 50);
+  if (focarRelogio) setTimeout(() => secRel.scrollIntoView?.({ block: 'start' }), 50);
 }
 
 /* ==========================================================================
@@ -1450,41 +1531,490 @@ const Timer = {
    ========================================================================== */
 const blocoCorrida = x => S.plano?.[x.ref ?? 'corrida'] || null;
 const fmtNum = n => String(n).replace('.', ',');
-function descreverCorrida(s) {
-  if (s.modo === 'continuo') return `${fmtMin(s.correr_min)} sem parar`;
-  return `${fmtNum(s.correr_min)}′ correr · ${fmtNum(s.andar_min)}′ andar × ${s.repeticoes}`;
-}
-function segmentosCorrida(s) { // barra da semana: branco = correr, cinza = andar
-  const itens = [];
-  if (s.modo === 'continuo') itens.push(h('i', { class: 'c', style: 'flex:1' }));
-  else for (let k = 0; k < s.repeticoes; k++) {
-    itens.push(h('i', { class: 'c', style: `flex:${s.correr_min}` }));
-    if (s.andar_min > 0) itens.push(h('i', { style: `flex:${s.andar_min}` }));
+/* ==========================================================================
+   RELÓGIO — 1.4.0: lê o arquivo de um treino (.fit, .tcx ou .gpx; também .gz)
+   exportado do Zepp, do Strava ou de outro app. Tudo roda no aparelho.
+   Resultado: { fonte, esporte, data, inicio, duracao_s, decorrido_s, distancia_km,
+                fc_media, fc_max, calorias, subida_m, cadencia_spm } (campo ausente = null)
+   ========================================================================== */
+const FIT_EPOCA = 631065600; // 1989-12-31T00:00:00Z em segundos Unix
+const NOME_ESPORTE = { corrida: 'corrida', caminhada: 'caminhada', bike: 'pedal', forca: 'treino de força', outro: 'outro esporte' };
+
+async function lerArquivoRelogio(arquivo) {
+  let buf = await arquivo.arrayBuffer();
+  let b = new Uint8Array(buf);
+  if (b[0] === 0x1f && b[1] === 0x8b) { // .gz (Strava manda assim)
+    if (typeof DecompressionStream !== 'function') throw new Error('Este navegador não abre arquivos .gz. Descompacte antes.');
+    buf = await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+    b = new Uint8Array(buf);
   }
-  return h('div', { class: 'segmentos', 'aria-hidden': 'true' }, itens);
+  let res;
+  if (b.length > 12 && String.fromCharCode(b[8], b[9], b[10], b[11]) === '.FIT') res = lerFIT(buf);
+  else {
+    const txt = new TextDecoder('utf-8').decode(b).replace(/^﻿/, '');
+    if (/<TrainingCenterDatabase[\s>]/.test(txt)) res = lerTCX(txt);
+    else if (/<gpx[\s>]/.test(txt)) res = lerGPX(txt);
+    else throw new Error('Formato não reconhecido. Use o arquivo .fit, .tcx ou .gpx do treino.');
+  }
+  return completarRelogio(res);
 }
-function cardCorrida(x, semana, bruta = semana) {
-  const b = blocoCorrida(x);
-  const s = b?.semanas.find(o => o.semana === semana);
-  const ultima = b ? Math.max(...b.semanas.map(o => o.semana)) : 0;
-  let corpo;
-  if (b && Math.max(semana, bruta) > ultima && b.pos_semana_12) corpo = [h('div', { class: 'corrida-desc' }, b.pos_semana_12)]; // TR-01
-  else if (s) corpo = [
-    h('div', { class: 'corrida-desc' }, descreverCorrida(s)),
-    segmentosCorrida(s),
-    s.modo !== 'continuo' && h('div', { class: 'legenda' }, h('span', null, h('i', { class: 'c' }), 'correr'), h('span', null, h('i'), 'andar')),
-    h('p', { class: 'muted' }, `Total ${fmtMin(totalCorridaMin(s))}${b.intensidade ? ' · ' + b.intensidade : ''}`),
-    s.alivio && h('span', { class: 'tag warn' }, 'semana de alívio')];
-  else corpo = [h('p', { class: 'muted' }, `Sem prescrição de corrida para a semana ${semana}.`)];
-  return h('section', { class: 'card ex corrida' },
-    h('div', { class: 'ex-cab' }, h('h3', null, x.nome), h('span', { class: 'muted' }, `semana ${semana}`)),
-    ...corpo,
-    h('p', { class: 'muted', style: 'font-size:14px' }, 'O tempo fica com o relógio.'));
+
+function completarRelogio(r) {
+  const n = (v, casas = 0) => (ehNum(v) && v > 0 ? Math.round(v * 10 ** casas) / 10 ** casas : null);
+  const out = {
+    fonte: r.fonte, esporte: r.esporte || null,
+    inicio: null, data: null,
+    duracao_s: n(r.duracao_s), decorrido_s: n(r.decorrido_s ?? r.duracao_s),
+    distancia_km: n(r.distancia_m != null ? r.distancia_m / 1000 : null, 2),
+    fc_media: n(r.fc_media), fc_max: n(r.fc_max), calorias: n(r.calorias),
+    subida_m: n(r.subida_m), cadencia_spm: n(r.cadencia_spm)
+  };
+  if (ehNum(r.inicio_ms)) { const d = new Date(r.inicio_ms); out.inicio = dataHoraLocal(d); out.data = dataISO(d); }
+  if (out.distancia_km != null && out.distancia_km < 0.05) out.distancia_km = null;
+  if (out.fc_media != null && out.fc_max != null && out.fc_media > out.fc_max) out.fc_media = null;
+  if (out.duracao_s == null && out.distancia_km == null && out.fc_media == null)
+    throw new Error('O arquivo não tem dados de treino (tempo, distância ou batimentos).');
+  return out;
+}
+
+// FIT: protocolo binário da Garmin, usado por Zepp, Garmin, Coros, Strava…
+function campoFIT(dv, p, c, le) {
+  const t = c.base & 0x1f;
+  const tam = [1, 1, 1, 2, 2, 4, 4, 1, 4, 8, 1, 2, 4, 1, 8, 8, 8][t];
+  if (tam == null || c.size !== tam || t === 7 || t >= 14) return null; // listas, textos e 64 bits: ignorados
+  let v;
+  switch (t) {
+    case 1: v = dv.getInt8(p); break;
+    case 3: v = dv.getInt16(p, le); break;
+    case 4: case 11: v = dv.getUint16(p, le); break;
+    case 5: v = dv.getInt32(p, le); break;
+    case 6: case 12: v = dv.getUint32(p, le); break;
+    case 8: v = dv.getFloat32(p, le); return Number.isFinite(v) ? v : null;
+    case 9: v = dv.getFloat64(p, le); return Number.isFinite(v) ? v : null;
+    default: v = dv.getUint8(p);
+  }
+  const invalido = { 0: 0xFF, 1: 0x7F, 2: 0xFF, 3: 0x7FFF, 4: 0xFFFF, 5: 0x7FFFFFFF, 6: 0xFFFFFFFF, 13: 0xFF };
+  if (t === 10 || t === 11 || t === 12 ? v === 0 : v === invalido[t]) return null;
+  return v;
+}
+function lerFIT(buf) {
+  const dv = new DataView(buf);
+  const tamCab = dv.getUint8(0);
+  const tamDados = dv.getUint32(4, true);
+  const fim = tamDados > 0 ? Math.min(tamCab + tamDados, buf.byteLength) : buf.byteLength - 2;
+  const defs = {}, sessoes = [], voltas = [], pontos = [];
+  let p = tamCab, ultTs = null, esporteMsg = null;
+  while (p < fim) {
+    const cab = dv.getUint8(p++);
+    let local, tsComp = null;
+    if (cab & 0x80) { // cabeçalho com timestamp comprimido
+      local = (cab >> 5) & 0x03;
+      const off = cab & 0x1f;
+      if (ultTs != null) {
+        const base = ultTs - (ultTs % 32);
+        tsComp = off >= ultTs % 32 ? base + off : base + off + 32;
+        ultTs = tsComp;
+      }
+    } else if (cab & 0x40) { // definição
+      local = cab & 0x0f;
+      const temDev = cab & 0x20;
+      if (p + 5 > buf.byteLength) break;
+      const le = dv.getUint8(p + 1) === 0;
+      const glob = dv.getUint16(p + 2, le);
+      const nCampos = dv.getUint8(p + 4);
+      p += 5;
+      const campos = [];
+      for (let i = 0; i < nCampos; i++, p += 3) campos.push({ num: dv.getUint8(p), size: dv.getUint8(p + 1), base: dv.getUint8(p + 2) });
+      let dev = 0;
+      if (temDev) { const nDev = dv.getUint8(p++); for (let i = 0; i < nDev; i++, p += 3) dev += dv.getUint8(p + 1); }
+      defs[local] = { glob, le, campos, dev };
+      continue;
+    } else local = cab & 0x0f;
+    const d = defs[local];
+    if (!d) throw new Error('Arquivo .fit danificado (mensagem sem definição).');
+    const m = {};
+    for (const c of d.campos) { if (p + c.size > buf.byteLength) break; m[c.num] = campoFIT(dv, p, c, d.le); p += c.size; }
+    p += d.dev;
+    if (m[253] != null) ultTs = m[253];
+    else if (tsComp != null) m[253] = tsComp;
+    if (d.glob === 18) sessoes.push(m);
+    else if (d.glob === 19) voltas.push(m);
+    else if (d.glob === 20) pontos.push(m);
+    else if (d.glob === 12 && esporteMsg == null) esporteMsg = m[0];
+  }
+  if (!sessoes.length && !voltas.length && !pontos.length) throw new Error('O arquivo .fit não tem dados de treino.');
+  const soma = (lista, k, esc = 1) => { const v = lista.map(o => o[k]).filter(ehNum); return v.length ? v.reduce((a, b) => a + b, 0) / esc : null; };
+  const maior = (lista, k) => { const v = lista.map(o => o[k]).filter(ehNum); return v.length ? Math.max(...v) : null; };
+  const resumo = sessoes.length ? sessoes : voltas;
+  const tsPontos = pontos.map(o => o[253]).filter(ehNum);
+  const fcPontos = pontos.map(o => o[3]).filter(v => ehNum(v) && v > 0);
+  const distPontos = pontos.map(o => o[5]).filter(ehNum);
+  const inicioFit = resumo.map(o => o[2]).filter(ehNum)[0] ?? tsPontos[0] ?? null;
+  const decorridoPontos = tsPontos.length > 1 ? tsPontos[tsPontos.length - 1] - tsPontos[0] : null;
+  // FC média: ponderada pelo tempo de cada sessão; sem resumo, média dos pontos
+  let fcMedia = null;
+  const comFc = resumo.filter(o => ehNum(o[16]));
+  if (comFc.length) {
+    const pesos = comFc.map(o => (ehNum(o[8]) ? o[8] : 1));
+    fcMedia = comFc.reduce((a, o, i) => a + o[16] * pesos[i], 0) / pesos.reduce((a, b) => a + b, 0);
+  } else if (fcPontos.length) fcMedia = fcPontos.reduce((a, b) => a + b, 0) / fcPontos.length;
+  const codEsporte = resumo.map(o => o[5]).filter(ehNum)[0] ?? esporteMsg;
+  const esporte = { 1: 'corrida', 11: 'caminhada', 2: 'bike', 10: 'forca', 4: 'forca' }[codEsporte] || (codEsporte != null ? 'outro' : null);
+  const cad = soma(resumo, 18) != null ? soma(resumo, 18) / resumo.filter(o => ehNum(o[18])).length : null;
+  return {
+    fonte: 'fit', esporte,
+    inicio_ms: inicioFit != null ? (inicioFit + FIT_EPOCA) * 1000 : null,
+    duracao_s: soma(resumo, 8, 1000) ?? soma(resumo, 7, 1000) ?? decorridoPontos,
+    decorrido_s: soma(resumo, 7, 1000) ?? decorridoPontos,
+    distancia_m: soma(resumo, 9, 100) ?? (distPontos.length ? distPontos[distPontos.length - 1] / 100 : null),
+    fc_media: fcMedia,
+    fc_max: maior(resumo, 17) ?? (fcPontos.length ? Math.max(...fcPontos) : null),
+    calorias: soma(resumo, 11), subida_m: soma(resumo, 22),
+    cadencia_spm: esporte === 'corrida' && cad != null ? cad * 2 : null // FIT guarda passadas de um pé por minuto
+  };
+}
+
+function xmlDe(txt) {
+  const doc = new DOMParser().parseFromString(txt, 'application/xml');
+  if (doc.getElementsByTagName('parsererror').length) throw new Error('O arquivo está danificado (XML inválido).');
+  return doc;
+}
+const tags = (el, nome) => [...el.getElementsByTagNameNS('*', nome)];
+const filho = (el, nome) => el && [...el.children].find(c => c.localName === nome);
+const numDe = el => (el ? Number(el.textContent.trim()) : null);
+
+function lerTCX(txt) {
+  const doc = xmlDe(txt);
+  const atv = tags(doc, 'Activity')[0];
+  if (!atv) throw new Error('O arquivo .tcx não tem nenhuma atividade.');
+  const voltas = tags(atv, 'Lap');
+  const pts = tags(atv, 'Trackpoint');
+  const fcPts = pts.map(t => numDe(filho(filho(t, 'HeartRateBpm'), 'Value'))).filter(v => ehNum(v) && v > 0);
+  const tempos = pts.map(t => Date.parse(filho(t, 'Time')?.textContent || '')).filter(ehNum);
+  const soma = f => { const v = voltas.map(f).filter(ehNum); return v.length ? v.reduce((a, b) => a + b, 0) : null; };
+  const dur = soma(l => numDe(filho(l, 'TotalTimeSeconds')));
+  let fcMedia = null;
+  const comFc = voltas.filter(l => ehNum(numDe(filho(filho(l, 'AverageHeartRateBpm'), 'Value'))));
+  if (comFc.length) {
+    const peso = l => numDe(filho(l, 'TotalTimeSeconds')) || 1;
+    fcMedia = comFc.reduce((a, l) => a + numDe(filho(filho(l, 'AverageHeartRateBpm'), 'Value')) * peso(l), 0) / comFc.reduce((a, l) => a + peso(l), 0);
+  } else if (fcPts.length) fcMedia = fcPts.reduce((a, b) => a + b, 0) / fcPts.length;
+  const maxVoltas = voltas.map(l => numDe(filho(filho(l, 'MaximumHeartRateBpm'), 'Value'))).filter(ehNum);
+  const inicio = Date.parse(voltas[0]?.getAttribute('StartTime') || filho(atv, 'Id')?.textContent || '') || tempos[0] || null;
+  const distPts = pts.map(t => numDe(filho(t, 'DistanceMeters'))).filter(ehNum);
+  const sport = (atv.getAttribute('Sport') || '').toLowerCase();
+  return {
+    fonte: 'tcx', esporte: sport === 'running' ? 'corrida' : sport === 'biking' ? 'bike' : sport ? 'outro' : null,
+    inicio_ms: inicio, duracao_s: dur,
+    decorrido_s: tempos.length > 1 && inicio ? (tempos[tempos.length - 1] - inicio) / 1000 : dur,
+    distancia_m: soma(l => numDe(filho(l, 'DistanceMeters'))) || (distPts.length ? distPts[distPts.length - 1] : null),
+    fc_media: fcMedia,
+    fc_max: maxVoltas.length ? Math.max(...maxVoltas) : (fcPts.length ? Math.max(...fcPts) : null),
+    calorias: soma(l => numDe(filho(l, 'Calories'))), subida_m: null, cadencia_spm: null
+  };
+}
+
+function lerGPX(txt) {
+  const doc = xmlDe(txt);
+  const pts = tags(doc, 'trkpt');
+  if (!pts.length) throw new Error('O arquivo .gpx não tem pontos do percurso.');
+  const R = 6371000, rad = g => (g * Math.PI) / 180;
+  let dist = 0, subida = 0, ant = null, eleAnt = null;
+  const fc = [], tempos = [];
+  for (const pt of pts) {
+    const lat = Number(pt.getAttribute('lat')), lon = Number(pt.getAttribute('lon'));
+    if (ant && ehNum(lat) && ehNum(lon)) {
+      const dLat = rad(lat - ant[0]), dLon = rad(lon - ant[1]);
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(ant[0])) * Math.cos(rad(lat)) * Math.sin(dLon / 2) ** 2;
+      dist += 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
+    }
+    if (ehNum(lat) && ehNum(lon)) ant = [lat, lon];
+    const ele = numDe(filho(pt, 'ele'));
+    if (ehNum(ele)) { if (eleAnt != null && ele > eleAnt) subida += ele - eleAnt; eleAnt = ele; }
+    const t = Date.parse(filho(pt, 'time')?.textContent || '');
+    if (ehNum(t)) tempos.push(t);
+    const elFc = tags(pt, 'hr')[0] || tags(pt, 'heartrate')[0];
+    const v = numDe(elFc);
+    if (ehNum(v) && v > 0) fc.push(v);
+  }
+  const tipo = (tags(doc, 'trk')[0] && filho(tags(doc, 'trk')[0], 'type')?.textContent || '').toLowerCase();
+  const dec = tempos.length > 1 ? (tempos[tempos.length - 1] - tempos[0]) / 1000 : null;
+  return {
+    fonte: 'gpx', esporte: /run|corr/.test(tipo) ? 'corrida' : /walk|camin/.test(tipo) ? 'caminhada' : /bik|cycl/.test(tipo) ? 'bike' : null,
+    inicio_ms: tempos[0] ?? null, duracao_s: dec, decorrido_s: dec,
+    distancia_m: dist > 0 ? dist : null,
+    fc_media: fc.length ? fc.reduce((a, b) => a + b, 0) / fc.length : null,
+    fc_max: fc.length ? Math.max(...fc) : null,
+    calorias: null, subida_m: subida >= 1 ? subida : null, cadencia_spm: null
+  };
+}
+
+// Botão + seletor de arquivo. Sem "accept": no Android, filtrar por extensão esconde arquivos .fit.
+function botaoRelogio(rotulo, aoLer) {
+  const inFile = h('input', { type: 'file', hidden: true });
+  const btn = h('button', { type: 'button', class: 'btn-relogio', onclick: () => inFile.click() },
+    svg('M12 7v5l3 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z', { traco: 2 }), rotulo);
+  inFile.addEventListener('change', async () => {
+    const f = inFile.files?.[0];
+    inFile.value = '';
+    if (!f) return;
+    btn.disabled = true;
+    try { aoLer(await lerArquivoRelogio(f), f.name); }
+    catch (e) { toast(e.message || 'Não consegui ler o arquivo.', 'erro', 6000); }
+    finally { btn.disabled = false; }
+  });
+  return h('span', { class: 'relogio-wrap' }, btn, inFile);
 }
 
 /* ==========================================================================
-   TCX — fase 2 (importar arquivo do Amazfit)
+   CORRIDA — 1.4.0: registro livre (distância, tempo, pace, FC). O cronograma do
+   plano fica guardado no treino.json, mas não aparece mais na tela.
+   Registro: { tipo:'corrida', exercicio:'corrida', serie:1, distancia_km, tempo_s, tempo_min,
+               fc_media, fc_max, obs, [calorias, subida_m, cadencia_spm, fonte, inicio_relogio] }
    ========================================================================== */
+const EXTRAS_CORRIDA = ['calorias', 'subida_m', 'cadencia_spm', 'fonte', 'inicio_relogio'];
+const tempoDe = r => (ehNum(r.tempo_s) ? r.tempo_s : ehNum(r.tempo_min) ? r.tempo_min * 60 : null);
+const paceDe = r => { const t = tempoDe(r); return r.distancia_km > 0 && t > 0 ? t / r.distancia_km : null; };
+const fmtKm = km => (Math.round(km * 100) / 100).toFixed(2).replace('.', ',');
+const fmtKmCampo = km => String(Math.round(km * 100) / 100).replace('.', ',');
+function fmtTempo(s) {
+  s = Math.round(s);
+  const hh = Math.floor(s / 3600), mm = Math.floor((s % 3600) / 60), ss = s % 60;
+  return hh ? `${hh}:${pad2(mm)}:${pad2(ss)}` : `${mm}:${pad2(ss)}`;
+}
+function fmtPace(sKm) { if (!(sKm > 0) || !Number.isFinite(sKm)) return '—'; const t = Math.round(sKm); return `${Math.floor(t / 60)}:${pad2(t % 60)}`; }
+function lerTempo(txt) { // "28:30" "28.30" "28,30" "1:05:10" "2830" "28" → segundos; vazio → null; inválido → NaN
+  const t = String(txt).trim();
+  if (!t) return null;
+  let partes;
+  if (/[:.,]/.test(t)) partes = t.split(/[:.,]/);
+  else if (/^\d+$/.test(t)) {
+    if (t.length <= 2) partes = [t, '0'];
+    else { const ss = t.slice(-2), resto = t.slice(0, -2); partes = resto.length > 2 ? [resto.slice(0, -2), resto.slice(-2), ss] : [resto, ss]; }
+  } else return NaN;
+  if (partes.length > 3 || !partes.every(x => /^\d+$/.test(x))) return NaN;
+  const n = partes.map(Number);
+  if (n.length === 2) return n[1] < 60 ? n[0] * 60 + n[1] : NaN;
+  if (n.length === 3) return n[1] < 60 && n[2] < 60 ? n[0] * 3600 + n[1] * 60 + n[2] : NaN;
+  return NaN;
+}
+const corridaDoDia = (data, diaId) => S.registros.find(r => r.tipo === 'corrida' && r.data === data && r.dia === diaId) || null;
+const corridasComPace = () => S.registros.filter(r => r.tipo === 'corrida' && paceDe(r))
+  .sort((a, b) => a.data.localeCompare(b.data) || String(a.registrado_em).localeCompare(String(b.registrado_em)));
+const chaveCorrida = (data, diaId) => `${data}|${diaId}`;
+
+function salvarCorrida(v, data, dia, antigo) {
+  const r = antigo || { id: uid(), tipo: 'corrida', data, semana: semanaEm(data), dia: dia.id, exercicio: 'corrida', serie: 1, registrado_em: dataHoraLocal() };
+  Object.assign(r, { concluida: true, distancia_km: v.distancia_km, tempo_s: v.tempo_s,
+    tempo_min: v.tempo_s != null ? Math.round(v.tempo_s / 6) / 10 : null, fc_media: v.fc_media, fc_max: v.fc_max, obs: v.obs });
+  for (const k of EXTRAS_CORRIDA) { if (v[k] != null) r[k] = v[k]; else delete r[k]; }
+  if (antigo) r.editado_em = dataHoraLocal();
+  else {
+    const sAnd = Sessao.emAndamento();
+    if (sAnd && sAnd.data === data && sAnd.dia === dia.id) r.sessao_id = sAnd.id;
+    S.registros.push(r);
+  }
+  return salvarRegistros();
+}
+
+function formCorrida(data, dia, antigo) {
+  const extras = {};
+  if (antigo) for (const k of EXTRAS_CORRIDA) if (antigo[k] != null) extras[k] = antigo[k];
+  const campo = (props, valor) => h('input', Object.assign({ type: 'text', autocomplete: 'off', value: valor ?? '' }, props));
+  const tempo0 = antigo ? tempoDe(antigo) : null;
+  const inKm = campo({ inputmode: 'decimal', placeholder: '5,0', 'aria-label': 'Distância em km' }, antigo?.distancia_km != null ? fmtKmCampo(antigo.distancia_km) : '');
+  const inTempo = campo({ inputmode: 'decimal', placeholder: '28:30', 'aria-label': 'Tempo' }, tempo0 != null ? fmtTempo(tempo0) : '');
+  const inFcm = campo({ inputmode: 'numeric', placeholder: '150', 'aria-label': 'Frequência cardíaca média' }, antigo?.fc_media);
+  const inFcx = campo({ inputmode: 'numeric', placeholder: '175', 'aria-label': 'Frequência cardíaca máxima' }, antigo?.fc_max);
+  const inObs = campo({ placeholder: 'como foi (opcional)', 'aria-label': 'Observação' }, antigo?.obs);
+  const paceEl = h('div', { class: 'cr-pace' });
+  const info = h('div', { class: 'cr-info' });
+  const ler = () => ({ km: lerNumero(inKm.value), t: lerTempo(inTempo.value), fm: lerNumero(inFcm.value), fx: lerNumero(inFcx.value) });
+  const atualizar = () => {
+    const { km, t } = ler();
+    paceEl.replaceChildren(...[h('span', null, 'Pace'), h('b', null, km > 0 && t > 0 ? `${fmtPace(t / km)} /km` : '—'),
+      t > 0 && h('span', { class: 'muted' }, `tempo ${fmtTempo(t)}`)].filter(Boolean));
+  };
+  inKm.addEventListener('input', atualizar);
+  inTempo.addEventListener('input', atualizar);
+  atualizar();
+
+  const aplicar = res => {
+    if (res.distancia_km != null) inKm.value = fmtKmCampo(res.distancia_km);
+    if (res.duracao_s != null) inTempo.value = fmtTempo(res.duracao_s);
+    if (res.fc_media != null) inFcm.value = res.fc_media;
+    if (res.fc_max != null) inFcx.value = res.fc_max;
+    for (const k of EXTRAS_CORRIDA) delete extras[k];
+    for (const k of ['calorias', 'subida_m', 'cadencia_spm']) if (res[k] != null) extras[k] = res[k];
+    extras.fonte = res.fonte;
+    if (res.inicio) extras.inicio_relogio = res.inicio;
+    atualizar();
+    const itens = [res.distancia_km != null && `${fmtKm(res.distancia_km)} km`, res.duracao_s != null && fmtTempo(res.duracao_s),
+      res.fc_media != null && `FC ${res.fc_media}`, res.calorias != null && `${res.calorias} kcal`].filter(Boolean);
+    info.replaceChildren(h('p', null, h('b', null, `Lido do relógio (${res.fonte.toUpperCase()}): `), itens.join(' · ') || 'sem dados de corrida'));
+    if (res.esporte && res.esporte !== 'corrida') info.append(h('p', { class: 'muted' }, `O arquivo parece ser de ${NOME_ESPORTE[res.esporte]}. Confira antes de salvar.`));
+    if (res.distancia_km == null) info.append(h('p', { class: 'muted' }, 'O arquivo não tem distância. Preencha à mão se quiser o pace.'));
+    if (res.data && res.data !== data) info.append(h('p', { class: 'muted' }, `O arquivo é de ${fmtData(res.data)}; a corrida vai ficar em ${fmtData(data)}. `,
+      h('button', { type: 'button', class: 'link', onclick: () => {
+        UI.importCorrida = { data: res.data, res }; UI.editCorrida = chaveCorrida(res.data, dia.id);
+        UI.data = res.data; UI.dataManual = res.data !== hoje(); render();
+      } }, `Mudar para ${fmtData(res.data).slice(0, 5)}`)));
+  };
+  if (UI.importCorrida && UI.importCorrida.data === data) { const res = UI.importCorrida.res; UI.importCorrida = null; setTimeout(() => aplicar(res)); }
+
+  const salvar = () => {
+    const { km, t, fm, fx } = ler(), erros = [];
+    if (km == null && t == null) erros.push('Preencha a distância e o tempo.');
+    if (Number.isNaN(km) || (km != null && !(km > 0 && km <= 300))) erros.push('Distância inválida. Ex.: 5,2');
+    if (Number.isNaN(t) || (t != null && !(t > 0 && t < 86400))) erros.push('Tempo inválido. Ex.: 28:30');
+    for (const [v, n] of [[fm, 'FC média'], [fx, 'FC máxima']]) if (Number.isNaN(v) || (v != null && !(ehInt(v) && v >= 30 && v <= 240))) erros.push(`${n} inválida (de 30 a 240).`);
+    if (!erros.length && fm != null && fx != null && fm > fx) erros.push('A FC média não pode passar da máxima.');
+    if (erros.length) return toast(erros[0], 'erro', 4000);
+    const novo = !antigo;
+    const ok = salvarCorrida(Object.assign({ distancia_km: km, tempo_s: t, fc_media: fm, fc_max: fx, obs: inObs.value.trim() }, extras), data, dia, antigo);
+    UI.editCorrida = null;
+    if (novo) UI.rolarProximo = true;
+    toast(ok ? 'Corrida salva ✓' : 'Não consegui salvar.', ok ? '' : 'erro');
+    render();
+  };
+  const apagar = () => {
+    if (!confirm('Apagar esta corrida?')) return;
+    S.registros = S.registros.filter(r => r !== antigo);
+    salvarRegistros(); UI.editCorrida = null; toast('Corrida apagada'); render();
+  };
+  const rot = (texto, el) => h('label', { class: 'rotulo' }, texto, el);
+  return h('div', { class: 'cr-form' },
+    botaoRelogio('Importar do relógio', aplicar),
+    info,
+    h('div', { class: 'cr-grade' }, rot('Distância (km)', inKm), rot('Tempo', inTempo)),
+    paceEl,
+    h('div', { class: 'cr-grade' }, rot('FC média (bpm)', inFcm), rot('FC máxima (bpm)', inFcx)),
+    rot('Observação', inObs),
+    h('div', { class: 'acoes' },
+      h('button', { type: 'button', class: 'btn-pri', onclick: salvar }, antigo ? 'Salvar' : 'Salvar corrida'),
+      antigo && h('button', { type: 'button', onclick: () => { UI.editCorrida = null; render(); } }, 'Cancelar')),
+    antigo && h('button', { type: 'button', class: 'btn-perigo btn-bloco', onclick: apagar }, 'Apagar corrida'));
+}
+
+function linhaExtrasCorrida(r) {
+  return [r.fc_media != null && `FC média ${r.fc_media}`, r.fc_max != null && `máx ${r.fc_max}`, r.calorias != null && `${r.calorias} kcal`,
+    r.subida_m != null && `subida ${r.subida_m} m`, r.cadencia_spm != null && `${r.cadencia_spm} passos/min`].filter(Boolean).join(' · ');
+}
+function textoCorrida(r) {
+  const t = tempoDe(r), p = paceDe(r);
+  return [r.distancia_km != null && `${fmtKm(r.distancia_km)} km`, t != null && fmtTempo(t), p && `${fmtPace(p)} /km`].filter(Boolean).join(' · ') || 'corrida';
+}
+function marcosCorrida(r) { // comparação com as corridas anteriores
+  const p = paceDe(r);
+  const antes = S.registros.filter(o => o.tipo === 'corrida' && o !== r && (o.data < r.data || (o.data === r.data && String(o.registrado_em) < String(r.registrado_em))));
+  const out = [];
+  const antPace = antes.filter(paceDe).sort((a, b) => a.data.localeCompare(b.data)).pop();
+  if (p && antPace) {
+    const dif = Math.round(p - paceDe(antPace));
+    out.push(Math.abs(dif) < 1 ? 'Mesmo pace da anterior'
+      : `${Math.abs(dif) < 60 ? Math.abs(dif) + ' s' : fmtSeg(Math.abs(dif))}/km ${dif < 0 ? 'mais rápido' : 'mais lento'} que a anterior (${fmtPace(paceDe(antPace))})`);
+  }
+  if (p && antes.some(paceDe) && antes.filter(paceDe).every(o => p < paceDe(o))) out.push('Melhor pace até agora');
+  if (r.distancia_km > 0 && antes.some(o => o.distancia_km > 0) && antes.every(o => !(o.distancia_km >= r.distancia_km))) out.push('Maior distância até agora');
+  return out;
+}
+
+function cardCorrida(x, dia, data) {
+  const r = corridaDoDia(data, dia.id);
+  const editando = !r || UI.editCorrida === chaveCorrida(data, dia.id);
+  const card = h('section', { class: 'card ex corrida' + (r && !editando ? ' concluido' : '') },
+    h('div', { class: 'ex-cab' }, h('h3', null, x.nome), h('span', { class: 'muted' }, r ? 'registrada ✓' : 'registro livre')));
+  if (r && !editando) {
+    const t = tempoDe(r), p = paceDe(r);
+    const stat = (rotulo, valor, un) => h('div', { class: 'cr-stat' }, h('span', null, rotulo), h('b', null, valor, un && h('small', null, un)));
+    card.append(h('div', { class: 'cr-stats' },
+      stat('Distância', r.distancia_km != null ? fmtKm(r.distancia_km) : '—', r.distancia_km != null && 'km'),
+      stat('Tempo', t != null ? fmtTempo(t) : '—'),
+      stat('Pace', p ? fmtPace(p) : '—', p && '/km')));
+    const extras = linhaExtrasCorrida(r);
+    if (extras) card.append(h('p', { class: 'muted cr-extra' }, extras));
+    if (r.obs) card.append(h('p', { class: 'muted cr-extra' }, r.obs));
+    const marcos = marcosCorrida(r);
+    if (marcos.length) card.append(h('div', { class: 'hero-chips' }, marcos.map(m => h('span', { class: 'pilula' }, m))));
+    card.append(h('button', { type: 'button', class: 'chip', onclick: () => { UI.editCorrida = chaveCorrida(data, dia.id); render(); } }, 'Editar corrida'));
+    return card;
+  }
+  const ult = !r && corridasComPace().filter(o => o.data < data).pop();
+  if (ult) card.append(h('p', { class: 'muted cr-extra' }, `Última: ${textoCorrida(ult)} em ${fmtData(ult.data).slice(0, 5)}`));
+  card.append(formCorrida(data, dia, r));
+  return card;
+}
+
+// Histórico → Por exercício → Corrida: números, gráfico do pace e lista
+function histCorrida() {
+  const todas = S.registros.filter(r => r.tipo === 'corrida').sort((a, b) => b.data.localeCompare(a.data));
+  const els = [];
+  if (!todas.length) return [h('p', { class: 'muted' }, 'Nenhuma corrida registrada ainda.')];
+  const comPace = corridasComPace();
+  const melhor = comPace.reduce((m, r) => (!m || paceDe(r) < paceDe(m) ? r : m), null);
+  const longa = todas.filter(r => r.distancia_km > 0).reduce((m, r) => (!m || r.distancia_km > m.distancia_km ? r : m), null);
+  const mes = hoje().slice(0, 7), doMes = todas.filter(r => r.data.slice(0, 7) === mes);
+  const kmMes = doMes.reduce((a, r) => a + (r.distancia_km > 0 ? r.distancia_km : 0), 0);
+  const stat = (rotulo, valor, un, sub) => h('div', { class: 'cr-stat' }, h('span', null, rotulo), h('b', null, valor, un && h('small', null, un)), sub && h('em', null, sub));
+  els.push(h('div', { class: 'cr-stats' },
+    stat('Melhor pace', melhor ? fmtPace(paceDe(melhor)) : '—', melhor && '/km', melhor && fmtData(melhor.data).slice(0, 5)),
+    stat('Mais longa', longa ? fmtKm(longa.distancia_km) : '—', longa && 'km', longa && fmtData(longa.data).slice(0, 5)),
+    stat('Este mês', kmMes ? fmtKm(kmMes) : '0', 'km', `${doMes.length} corrida${doMes.length !== 1 ? 's' : ''}`)));
+  if (comPace.length >= 2) els.push(graficoPace(comPace.slice(-20)));
+  for (const r of todas) els.push(h('div', { class: 'hist-ex' },
+    h('div', { class: 'hist-nome' }, `${cap(NOMES_DIA_CURTO[diaDaSemana(r.data)])}, ${fmtData(r.data)}`),
+    h('button', { type: 'button', class: 'chip', onclick: () => abrirCorridaNoDia(r) }, textoCorrida(r)),
+    linhaExtrasCorrida(r) && h('p', { class: 'muted' }, linhaExtrasCorrida(r))));
+  return els;
+}
+function abrirCorridaNoDia(r) {
+  UI.data = r.data; UI.dataManual = r.data !== hoje(); UI.diaId = diaPorId(r.dia) ? r.dia : diaPadrao(r.data);
+  UI.editCorrida = chaveCorrida(r.data, r.dia); irPara('hoje');
+  setTimeout(() => document.querySelector('#main .card.corrida')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60);
+}
+
+// Linha do pace no tempo. Mais rápido fica mais alto. Toque num ponto para ver o valor.
+function graficoPace(lista) {
+  const W = 320, H = 150, ml = 40, mr = 14, mt = 14, mb = 26;
+  const paces = lista.map(paceDe);
+  let lo = Math.min(...paces), hi = Math.max(...paces);
+  if (hi - lo < 20) { const m = (hi + lo) / 2; lo = m - 10; hi = m + 10; }
+  const x = i => ml + (lista.length === 1 ? (W - ml - mr) / 2 : (i * (W - ml - mr)) / (lista.length - 1));
+  const y = v => mt + ((v - lo) / (hi - lo)) * (H - mt - mb); // pace menor (mais rápido) → mais alto
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (tag, at, txt) => { const e = document.createElementNS(NS, tag); for (const k in at) e.setAttribute(k, at[k]); if (txt != null) e.textContent = txt; return e; };
+  const s = el('svg', { viewBox: `0 0 ${W} ${H}`, class: 'cr-grafico', role: 'img', 'aria-label': `Pace das últimas ${lista.length} corridas` });
+  for (const v of [lo, (lo + hi) / 2, hi]) {
+    s.append(el('line', { x1: ml, x2: W - mr, y1: y(v), y2: y(v), class: 'cr-grade-l' }));
+    s.append(el('text', { x: ml - 6, y: y(v) + 4, 'text-anchor': 'end', class: 'cr-eixo' }, fmtPace(v)));
+  }
+  s.append(el('text', { x: ml, y: H - 6, class: 'cr-eixo' }, fmtData(lista[0].data).slice(0, 5)));
+  s.append(el('text', { x: W - mr, y: H - 6, 'text-anchor': 'end', class: 'cr-eixo' }, fmtData(lista[lista.length - 1].data).slice(0, 5)));
+  s.append(el('polyline', { points: lista.map((r, i) => `${x(i)},${y(paces[i])}`).join(' '), class: 'cr-linha' }));
+  const dica = h('p', { class: 'muted cr-dica' }, 'Toque num ponto para ver a corrida.');
+  lista.forEach((r, i) => {
+    const ultimo = i === lista.length - 1;
+    s.append(el('circle', { cx: x(i), cy: y(paces[i]), r: 4, class: 'cr-ponto' + (ultimo ? ' ultimo' : '') }));
+    const alvo = el('circle', { cx: x(i), cy: y(paces[i]), r: 16, class: 'cr-alvo', tabindex: '0' });
+    alvo.append(el('title', {}, `${fmtData(r.data).slice(0, 5)}: ${fmtPace(paces[i])} /km`));
+    const mostrar = () => { dica.textContent = `${cap(NOMES_DIA_CURTO[diaDaSemana(r.data)])}, ${fmtData(r.data).slice(0, 5)} · ${textoCorrida(r)}`; };
+    alvo.addEventListener('click', mostrar);
+    alvo.addEventListener('mouseenter', mostrar);
+    alvo.addEventListener('focus', mostrar);
+    s.append(alvo);
+  });
+  return h('div', { class: 'cr-graf-box' }, h('div', { class: 'hist-nome' }, 'Pace (min/km) — mais alto é mais rápido'), s, dica);
+}
+
+/* ==========================================================================
+   RELÓGIO NA SESSÃO — 1.4.0: FC, calorias e horários do relógio em s.sessao_relogio
+   { fonte, inicio, duracao_s, fc_media, fc_max, calorias, distancia_km } ou null
+   ========================================================================== */
+function textoRelogio(rel) {
+  if (!rel) return '';
+  return [rel.fc_media != null && `FC média ${rel.fc_media}`, rel.fc_max != null && `máx ${rel.fc_max}`,
+    rel.calorias != null && `${rel.calorias} kcal`, rel.duracao_s != null && fmtDuracao(rel.duracao_s)].filter(Boolean).join(' · ');
+}
 
 /* ==========================================================================
    HISTÓRICO (por data e por exercício)
@@ -1518,11 +2048,15 @@ function histPorData() {
     const ordem = ordemNoDia(diaId);
     const sess = (sessPorChave.get(k) || []).sort((a, b) => Date.parse(a.inicio) - Date.parse(b.inicio));
     const semanas = [...new Set([...regs, ...sess].map(r => r.semana))].join('/');
-    const porEx = agrupar(regs, r => r.exercicio).sort(([a], [b]) => ordem(a) - ordem(b));
+    const cors = regs.filter(r => r.tipo === 'corrida'), series = regs.filter(r => r.tipo !== 'corrida');
+    const porEx = agrupar(series, r => r.exercicio).sort(([a], [b]) => ordem(a) - ordem(b));
     return h('section', { class: 'card' },
       h('h3', null, `${cap(NOMES_DIA_CURTO[diaDaSemana(data)])}, ${fmtData(data)}`),
-      h('p', { class: 'muted' }, `${dia ? dia.nome : 'Dia ' + diaId} · semana ${semanas} · ${regs.length} série${regs.length !== 1 ? 's' : ''}`),
+      h('p', { class: 'muted' }, `${dia ? dia.nome : 'Dia ' + diaId} · semana ${semanas} · ${series.length} série${series.length !== 1 ? 's' : ''}${cors.length ? ' · corrida' : ''}`),
       sess.map(blocoSessaoHist),
+      cors.map(r => h('div', { class: 'hist-ex' }, h('div', { class: 'hist-nome' }, 'Corrida'),
+        h('div', { class: 'chips' }, h('button', { type: 'button', class: 'chip', onclick: () => abrirCorridaNoDia(r) }, textoCorrida(r))),
+        linhaExtrasCorrida(r) && h('p', { class: 'muted' }, linhaExtrasCorrida(r)))),
       porEx.map(([exId, rs]) => h('div', { class: 'hist-ex' },
         h('div', { class: 'hist-nome' }, nomeExercicio(exId)),
         h('div', { class: 'chips' }, rs.sort((a, b) => a.serie - b.serie).map(r =>
@@ -1538,20 +2072,25 @@ function blocoSessaoHist(s) {
   return h('div', { class: 'hist-sessao' },
     h('div', { class: 'hist-nome' }, `Sessão ${fmtHora(s.inicio)}–${fmtHora(s.fim)} · ${fmtDuracao(s.duracao_s)}`),
     h('p', { class: 'muted' }, `Esforço: ${s.esforco != null ? s.esforco + '/10' : '—'} · ${dor}`),
+    s.sessao_relogio && textoRelogio(s.sessao_relogio) && h('p', { class: 'muted' }, `Relógio: ${textoRelogio(s.sessao_relogio)}`),
     s.obs && h('p', { class: 'muted' }, s.obs),
     h('button', { type: 'button', class: 'chip', onclick: () => abrirFolhaSessao(s.id) }, 'Editar sessão'));
 }
 
 function histPorExercicio() {
   const mapa = exerciciosRegistraveis();
-  const comReg = new Set(S.registros.map(r => r.exercicio));
-  const opcoes = [...mapa.values()].map(x => [x.id, x.nome]);
-  for (const id of comReg) if (!mapa.has(id)) opcoes.push([id, `${id} (fora do plano)`]);
+  const temCorrida = S.registros.some(r => r.tipo === 'corrida') || diasDoPlano().some(d => d.exercicios.some(x => x.tipo === 'corrida'));
+  const comReg = new Set(S.registros.filter(r => r.tipo !== 'corrida').map(r => r.exercicio));
+  if (S.registros.some(r => r.tipo === 'corrida')) comReg.add('corrida');
+  const opcoes = temCorrida ? [['corrida', 'Corrida']] : [];
+  opcoes.push(...[...mapa.values()].map(x => [x.id, x.nome]));
+  for (const id of comReg) if (id !== 'corrida' && !mapa.has(id)) opcoes.push([id, `${id} (fora do plano)`]);
   if (!opcoes.some(o => o[0] === UI.histEx)) UI.histEx = (opcoes.find(o => comReg.has(o[0])) || opcoes[0])?.[0];
 
   const sel = h('select', { 'aria-label': 'Exercício', onchange: e => { UI.histEx = e.target.value; render(false); } },
     opcoes.map(([id, nome]) => h('option', { value: id, selected: id === UI.histEx }, nome + (comReg.has(id) ? '' : ' — sem registros'))));
-  const regs = S.registros.filter(r => r.exercicio === UI.histEx);
+  if (UI.histEx === 'corrida') return [h('section', { class: 'card' }, sel, ...histCorrida())];
+  const regs = S.registros.filter(r => r.exercicio === UI.histEx && r.tipo !== 'corrida');
   const card = h('section', { class: 'card' }, sel);
   if (!regs.length) { card.append(h('p', { class: 'muted' }, 'Sem registros deste exercício.')); return [card]; }
 
