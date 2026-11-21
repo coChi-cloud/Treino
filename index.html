@@ -341,7 +341,7 @@ dialog h2{font-size:24px;letter-spacing:-.03em}
    CONFIGURAÇÃO GERAL
    ========================================================================== */
 const APP_ID = 'treino-pwa';
-const APP_VERSAO = '1.4.0';
+const APP_VERSAO = '1.4.1';
 const CHAVES = {
   plano: 'treino.plano.v1',
   config: 'treino.config.v1',
@@ -1344,7 +1344,7 @@ function estadoProgressao(x, dataTela) {
 
   const ehTempo = x.tipo === 'tempo';
   const campo = ehTempo ? 'duracao_s' : 'reps', faixa = ehTempo ? x.duracao_s : x.reps;
-  const [piso, topo] = faixa, un = ehTempo ? ' s' : '';
+  const [piso, topo] = faixa, un = ehTempo ? ' s' : ' reps';
   const todasNoTopo = ult.every(r => ehNum(r[campo]) && r[campo] >= topo);
   const abaixoPiso = ss => ss.some(r => ehNum(r[campo]) && r[campo] < piso);
 
@@ -1369,7 +1369,7 @@ function estadoProgressao(x, dataTela) {
   // TR-03 regra 3: carga faltando ou diferente entre séries → sem sugestão, com o motivo
   const cargas = ult.map(r => r.carga_kg);
   if (cargas.some(c => !ehNum(c))) return { tipo: 'nenhuma', texto: 'Registre a carga para receber sugestão.' };
-  if (new Set(cargas).size > 1) return { tipo: 'nenhuma', texto: 'Cargas diferentes entre séries: sem sugestão.' };
+  if (new Set(cargas).size > 1) return progressaoMista(ult, { campo, piso, topo, ehTempo, esforco, dor, pausaLonga, semanasPausa });
   const C = cargas[0], inc = incrementoDe(x);
 
   if (pausaLonga) { // TR-09: ~90% da última carga, para baixo em passos de 0,5 kg
@@ -1389,6 +1389,30 @@ function estadoProgressao(x, dataTela) {
   const extra = ehTempo ? `${topo + 5}–${topo + 10} s` : `${topo + 1}–${topo + 2} reps`;
   return { tipo: 'aumentar', carga: novo, texto: `Suba para ${fmtKg(novo)} kg.`,
     nota: pct > 10 ? `Salto de ${pct}%. Se pesar, fique em ${fmtKg(C)} kg e faça ${extra}.` : null };
+}
+
+// 1.4.1: cargas diferentes entre as séries da última vez (rampa, queda de carga, ajuste no meio).
+// Carga de trabalho = mediana das cargas (com número par de séries, a menor das duas do meio).
+// Meta: com essa carga em todas as séries, buscar o topo da faixa; se ficou abaixo do piso com ela, buscar o piso.
+// Todas as séries no topo → usar a maior carga em todas. A regra de reduzir (duas vezes abaixo do piso) só vale para carga igual.
+function progressaoMista(ult, { campo, piso, topo, ehTempo, esforco, dor, pausaLonga, semanasPausa }) {
+  const un = ehTempo ? ' s' : ' reps';
+  const ord = ult.map(r => r.carga_kg).sort((a, b) => a - b);
+  const M = ord[Math.floor((ord.length - 1) / 2)], maior = ord[ord.length - 1];
+  const nota = 'Última vez: ' + ult.slice().sort((a, b) => a.serie - b.serie)
+    .map(r => `${fmtKg(r.carga_kg)} kg × ${ehNum(r[campo]) ? r[campo] : '?'}${ehTempo ? ' s' : ''}`).join(' · ');
+  if (pausaLonga) {
+    const c90 = Math.floor(M * 0.9 * 2) / 2;
+    return { tipo: 'retorno', carga: c90, texto: `Voltando após ${semanasPausa} semanas: comece com ${fmtKg(c90)} kg em todas.`, nota };
+  }
+  if (dor) return { tipo: 'manter', carga: M, texto: `Dor em ${ddmm(dor.data)}: fique em ${fmtKg(M)} kg em todas, sem subir.`, nota };
+  const todasNoTopo = ult.every(r => ehNum(r[campo]) && r[campo] >= topo);
+  if (todasNoTopo && !(esforco > 8) && maior > M)
+    return { tipo: 'aumentar', carga: maior, texto: `Todas no topo: use ${fmtKg(maior)} kg em todas.`, nota };
+  if (esforco > 8) return { tipo: 'manter', carga: M, texto: `Esforço ${esforco} da última vez: use ${fmtKg(M)} kg em todas.`, nota };
+  const naM = ult.filter(r => r.carga_kg === M);
+  const alvo = naM.some(r => !ehNum(r[campo]) || r[campo] < piso) ? piso : topo;
+  return { tipo: 'manter', carga: M, texto: `Use ${fmtKg(M)} kg em todas e busque ${alvo}${un}.`, nota };
 }
 
 // TR-07: "Usar C kg" só preenche o campo de kg das séries pendentes (rascunho); nada é registrado
