@@ -26,7 +26,7 @@
   --vidro:rgba(255,255,255,.07);--vidro2:rgba(255,255,255,.10);--borda:rgba(255,255,255,.10);--borda2:rgba(255,255,255,.16);
   --campo:rgba(0,0,0,.32);--ok:#32D74B;--warn:#FF9F0A;--err:#FF453A;--info:#64D2FF;--vivo:#FF5A36;
   --num:'Barlow Condensed',system-ui,sans-serif;--mola:cubic-bezier(.2,.8,.2,1);
-  --nav-h:60px;--nav-b:16px;--timer-h:0px;--sessao-h:0px;--sb:env(safe-area-inset-bottom,0px);
+  --nav-h:60px;--nav-b:16px;--topo-h:0px;--sessao-h:0px;--sb:env(safe-area-inset-bottom,0px);
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%;background:var(--bg)}
@@ -38,7 +38,8 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;ba
   radial-gradient(circle 440px at 100% 0%,rgba(255,255,255,.17),transparent 65%),
   radial-gradient(circle 400px at 0% 72%,rgba(255,106,61,.17),transparent 65%),
   radial-gradient(circle 300px at 100% 45%,rgba(130,150,255,.12),transparent 65%),var(--bg)}
-main{max-width:640px;margin:0 auto;padding:16px 14px calc(var(--nav-h) + var(--nav-b) + var(--sb) + var(--timer-h) + 28px)}
+main{max-width:640px;margin:0 auto;padding:calc(16px + var(--topo-h)) 14px calc(var(--nav-h) + var(--nav-b) + var(--sb) + 28px)}
+#main .card,#main [id]{scroll-margin-top:calc(var(--topo-h) + 12px)}
 h1{font-size:34px;line-height:1.1;font-weight:700;letter-spacing:-.035em;margin:8px 4px 14px}
 h2{font-size:20px;font-weight:700;letter-spacing:-.02em;margin:0 0 8px}
 h3{font-size:19px;font-weight:700;letter-spacing:-.02em;margin:0}
@@ -102,11 +103,14 @@ details[open]>summary::before{transform:rotate(45deg)}
 .abas .ult{font-size:12px;font-weight:500;opacity:.72}
 
 /* sessão em andamento (topo) e cartão do treino */
-.cron-sessao{display:flex;align-items:center;gap:10px;margin:0 0 14px;padding:6px 6px 6px 18px;border-radius:999px;
-  background:var(--vidro);border:1px solid var(--borda);box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
+.cron-sessao{display:flex;align-items:center;gap:10px;padding:4px 4px 4px 18px;border-radius:999px;
+  background:rgba(28,28,30,.88);-webkit-backdrop-filter:blur(28px) saturate(170%);backdrop-filter:blur(28px) saturate(170%);
+  border:1px solid rgba(255,255,255,.12);box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 12px 30px rgba(0,0,0,.45)}
+.cron-sessao[hidden]{display:none}
 .cron-sessao .vivo{width:8px;height:8px;border-radius:50%;background:var(--vivo);flex:none;animation:pulso 1.6s ease-in-out infinite}
 .cron-sessao span{flex:1;min-width:0;font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cron-sessao b{font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums}
+.cron-sessao em{font-style:normal}
+.cron-sessao b{font-weight:500;color:var(--txt);font-variant-numeric:tabular-nums}
 .cron-sessao button{min-height:44px;padding:0 18px;font-size:14px}
 .hero{padding:20px;border-radius:32px}
 .hero h1{font-size:44px;line-height:1;margin:4px 0 4px;letter-spacing:-.04em}
@@ -234,20 +238,21 @@ button.link{background:none;border:0;padding:0;min-height:0;color:var(--txt);tex
 .stepper .valor b{display:block;font-family:var(--num);font-size:44px;line-height:1;font-weight:500;color:var(--txt)}
 
 /* timer de descanso: cartão de vidro flutuando acima da navegação */
-#timer{position:fixed;left:12px;right:12px;max-width:616px;margin:0 auto;z-index:30;
-  bottom:calc(var(--nav-h) + var(--nav-b) + var(--sb) + 10px);display:flex;align-items:center;gap:16px;padding:12px 14px;border-radius:28px;
-  background:rgba(28,28,30,.74);-webkit-backdrop-filter:blur(28px) saturate(170%);backdrop-filter:blur(28px) saturate(170%);
+/* painel do topo: tempo total do treino + descanso, sempre visíveis */
+#topo{position:fixed;left:12px;right:12px;max-width:616px;margin:0 auto;z-index:30;top:calc(env(safe-area-inset-top,0px) + 8px);display:flex;flex-direction:column;gap:8px}
+#timer{display:flex;align-items:center;gap:14px;padding:10px 14px;border-radius:28px;
+  background:rgba(28,28,30,.88);-webkit-backdrop-filter:blur(28px) saturate(170%);backdrop-filter:blur(28px) saturate(170%);
   border:1px solid rgba(255,255,255,.12);box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 16px 40px rgba(0,0,0,.5);animation:subir .35s var(--mola)}
 #timer[hidden]{display:none}
-#timer .t-anel{position:relative;width:96px;height:96px;flex:none}
-#timer .t-anel svg{display:block;width:96px;height:96px}
+#timer .t-anel{position:relative;width:80px;height:80px;flex:none}
+#timer .t-anel svg{display:block;width:80px;height:80px}
 #timer .t-fundo{fill:none;stroke:rgba(255,255,255,.22);stroke-width:3;stroke-linecap:round;stroke-dasharray:.01 7.6}
 #timer .t-prog{fill:none;stroke:var(--txt);stroke-width:3;stroke-linecap:round;transition:stroke-dashoffset .3s linear,stroke .3s}
-#timer .t-tempo{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--num);font-size:34px;font-weight:500;font-variant-numeric:tabular-nums}
+#timer .t-tempo{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--num);font-size:28px;font-weight:500;font-variant-numeric:tabular-nums}
 #timer .t-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 #timer .t-rot{font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #timer .t-meta{color:var(--muted);font-size:13px}
-#timer .t-parar{align-self:flex-start;margin-top:6px;min-height:44px;padding:0 18px;font-size:14px}
+#timer .t-parar{align-self:flex-start;margin-top:4px;min-height:44px;padding:0 18px;font-size:14px}
 #timer.pronto .t-prog{stroke:var(--vivo)}
 #timer.pronto .t-meta{color:var(--vivo)}
 #timer.passou .t-prog{stroke:var(--warn)}
@@ -270,7 +275,7 @@ button.link{background:none;border:0;padding:0;min-height:0;color:var(--txt);tex
   opacity:0;transform:translateY(-12px) scale(.98);transition:opacity .25s var(--mola),transform .25s var(--mola);pointer-events:none}
 #toast.vis{opacity:1;transform:none}
 #toast.erro{border-color:rgba(255,69,58,.6);background:rgba(90,20,20,.88)}
-#banner-update{position:sticky;top:0;z-index:40;max-width:640px;margin:0 auto;padding:10px 14px;display:flex;gap:10px;align-items:center;justify-content:space-between;
+#banner-update{padding:8px 8px 8px 18px;border-radius:999px;border:1px solid rgba(255,255,255,.12);display:flex;gap:10px;align-items:center;justify-content:space-between;
   background:rgba(28,28,30,.80);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);border-bottom:1px solid rgba(255,255,255,.12)}
 #banner-update[hidden]{display:none}
 dialog{position:fixed;inset:auto 0 0 0;margin:0 auto;width:100%;max-width:640px;max-height:92vh;overflow:auto;
@@ -303,19 +308,25 @@ dialog h2{font-size:24px;letter-spacing:-.03em}
 /* movimento */
 @keyframes pulso{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.75)}}
 @keyframes entrar{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
-@keyframes subir{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes subir{from{opacity:0;transform:translateY(-16px)}to{opacity:1;transform:none}}
 @keyframes folha{from{transform:translateY(100%)}to{transform:none}}
 @keyframes pisca{50%{filter:brightness(1.8)}}
 @media (prefers-reduced-motion:reduce){*,*::before{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
+<div id="toast" role="status" aria-live="polite"></div>
+<main id="main"></main>
+<div id="topo">
 <div id="banner-update" hidden>
   <span>Nova versão do app pronta.</span>
   <button type="button" class="btn-pri" id="btn-atualizar">Atualizar</button>
 </div>
-<div id="toast" role="status" aria-live="polite"></div>
-<main id="main"></main>
+<div class="cron-sessao" id="cron-sessao" role="timer" aria-label="Tempo de treino" hidden>
+  <i class="vivo" aria-hidden="true"></i>
+  <span><em class="cs-nome"></em> · <b>0:00:00</b></span>
+  <button type="button" id="btn-finalizar-topo">Finalizar</button>
+</div>
 <div id="timer" hidden>
   <div class="t-anel">
     <svg viewBox="0 0 96 96" aria-hidden="true"><circle class="t-fundo" cx="48" cy="48" r="44"/><circle class="t-prog" cx="48" cy="48" r="44" stroke-dasharray="276.46" stroke-dashoffset="276.46" transform="rotate(-90 48 48)"/></svg>
@@ -326,6 +337,7 @@ dialog h2{font-size:24px;letter-spacing:-.03em}
     <div class="t-meta"></div>
     <button type="button" class="t-parar">Parar</button>
   </div>
+</div>
 </div>
 <nav id="nav" hidden aria-label="Navegação">
   <button type="button" data-aba="hoje" aria-label="Hoje"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></button>
@@ -341,7 +353,7 @@ dialog h2{font-size:24px;letter-spacing:-.03em}
    CONFIGURAÇÃO GERAL
    ========================================================================== */
 const APP_ID = 'treino-pwa';
-const APP_VERSAO = '1.4.1';
+const APP_VERSAO = '1.5.0';
 const CHAVES = {
   plano: 'treino.plano.v1',
   config: 'treino.config.v1',
@@ -789,12 +801,8 @@ function viewHoje() {
   const dwData = diaDaSemana(data), dwDia = idxDiaSemana(dia.dia_semana);
   const els = [];
 
-  // 1.3.0: treino em andamento numa pílula no topo, com o Finalizar longe do polegar
+  // 1.5.0: o treino em andamento fica no painel fixo do topo (desenharBarraSessao)
   const sAnd = Sessao.emAndamento();
-  if (sAnd) els.push(h('div', { class: 'cron-sessao', id: 'cron-sessao', role: 'timer' },
-    h('i', { class: 'vivo', 'aria-hidden': 'true' }),
-    h('span', null, `${diaPorId(sAnd.dia)?.nome ?? 'Treino ' + sAnd.dia} · `, h('b', null, fmtCron(Sessao.decorrido(sAnd)))),
-    h('button', { type: 'button', onclick: confirmarFinalizar }, 'Finalizar')));
   if (UI.erroGravacao) els.push(h('div', { class: 'aviso erro' }, h('b', null, 'O aparelho recusou salvar dados. '), 'Exporte o backup em Ajustes antes de fechar o app.'));
 
   const [, mes, diaMes] = partes(data);
@@ -1153,8 +1161,20 @@ const Sessao = {
   }
 };
 
-function desenharBarraSessao() { // 1.3.0: Iniciar fica no cartão do treino e Finalizar na pílula do topo
-  document.documentElement.style.setProperty('--sessao-h', '0px');
+function desenharBarraSessao() { // 1.5.0: tempo total e Finalizar no painel fixo do topo, em qualquer aba
+  const p = $('#cron-sessao'), s = S.plano ? Sessao.emAndamento() : null;
+  p.hidden = !s;
+  if (s) {
+    $('.cs-nome', p).textContent = diaPorId(s.dia)?.nome ?? 'Treino ' + s.dia;
+    $('b', p).textContent = fmtCron(Sessao.decorrido(s));
+  }
+  medirTopo();
+}
+// reserva no alto da página o espaço do painel fixo, para ele não cobrir o conteúdo
+function medirTopo() {
+  const t = $('#topo');
+  const visivel = [...t.children].some(c => !c.hidden);
+  document.documentElement.style.setProperty('--topo-h', visivel ? `${t.offsetHeight + 8}px` : '0px');
 }
 
 // US-01 (1.2.1): um toque sem querer em "Finalizar treino" encerrava a sessão na hora; agora pede confirmação
@@ -1535,7 +1555,7 @@ const Timer = {
     const t = $('#timer'), st = this.st;
     if (!st) {
       t.hidden = true;
-      document.documentElement.style.setProperty('--timer-h', '0px');
+      medirTopo();
       return;
     }
     const el = this.decorrido();
@@ -1551,7 +1571,7 @@ const Timer = {
     $('.t-tempo', t).textContent = fmtSeg(el);
     const total = Math.max(st.max, 1), C = 276.46; // circunferência do anel (r = 44)
     $('.t-prog', t).setAttribute('stroke-dashoffset', (C * (1 - Math.min(1, el / total))).toFixed(2));
-    document.documentElement.style.setProperty('--timer-h', `${t.offsetHeight}px`);
+    medirTopo();
   }
 };
 
@@ -2448,7 +2468,7 @@ function rolarProximo() {
   const algumFeito = document.querySelector('#main .card.ex.concluido, #main .serie.feita');
   const alvo = (algumFeito ? comSeries[0] : cards[0]) || document.querySelector('#main .aviso.ok');
   if (!alvo) return;
-  const top = alvo.getBoundingClientRect().top + window.scrollY - 14;
+  const top = alvo.getBoundingClientRect().top + window.scrollY - 14 - (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topo-h')) || 0);
   const suave = !matchMedia('(prefers-reduced-motion: reduce)').matches;
   window.scrollTo({ top: Math.max(0, top), behavior: suave ? 'smooth' : 'auto' });
 }
@@ -2462,7 +2482,7 @@ function registrarSW() {
   navigator.serviceWorker.register('./sw.js').then(reg => {
     UI.swReg = reg;
     reg.update().catch(() => {}); // procura versão nova a cada abertura
-    const oferecer = w => { UI.swEsperando = w; $('#banner-update').hidden = false; };
+    const oferecer = w => { UI.swEsperando = w; $('#banner-update').hidden = false; medirTopo(); };
     if (reg.waiting && navigator.serviceWorker.controller) oferecer(reg.waiting);
     reg.addEventListener('updatefound', () => {
       const w = reg.installing;
@@ -2473,7 +2493,7 @@ function registrarSW() {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!tinhaControle && !UI.atualizando) return; // primeira instalação: a página já é a versão atual
     if (UI.atualizando || podeRecarregar()) location.reload();
-    else { UI.atualizacaoPendente = true; $('#banner-update').hidden = false; }
+    else { UI.atualizacaoPendente = true; $('#banner-update').hidden = false; medirTopo(); }
   });
 }
 
@@ -2498,6 +2518,7 @@ document.addEventListener('visibilitychange', () => {
   document.addEventListener('pointerdown', () => Som.desbloquear(), { passive: true });
   for (const b of document.querySelectorAll('#nav button')) b.addEventListener('click', () => irPara(b.dataset.aba));
   $('#timer .t-parar').addEventListener('click', () => Timer.parar());
+  $('#btn-finalizar-topo').addEventListener('click', confirmarFinalizar);
   $('#btn-atualizar').addEventListener('click', () => {
     UI.atualizando = true;
     if (UI.swEsperando && UI.swEsperando.state === 'installed') UI.swEsperando.postMessage('pular-espera'); else location.reload();
