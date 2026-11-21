@@ -1361,7 +1361,7 @@ function estadoProgressao(x, dataTela) {
   if (comCarga === false || (comCarga == null && ult.every(r => r.carga_kg == null))) {
     if (pausaLonga) return { tipo: 'manter', texto: `Voltando após ${semanasPausa} semanas: não aumente hoje.` };
     if (dor) return { tipo: 'manter', texto: `Dor em ${ddmm(dor.data)}: mantenha.` };
-    if (!todasNoTopo) return { tipo: 'manter', texto: `Busque ${topo}${un} em todas as séries.` };
+    if (!todasNoTopo) return { tipo: 'manter', texto: `Busque pelo menos ${metaProxima(ult, campo, piso, topo, ehTempo)}${un} em cada série.` };
     if (esforco > 8) return { tipo: 'manter', texto: `Esforço ${esforco} da última vez: mantenha.` };
     return { tipo: 'dominada', texto: 'Faixa dominada: dá para passar a uma variação mais difícil.' };
   }
@@ -1382,7 +1382,7 @@ function estadoProgressao(x, dataTela) {
       return { tipo: 'reduzir', carga: arred2(C - inc), texto: `Duas vezes abaixo de ${piso}${ehTempo ? ' s' : ' reps'}: desça para ${fmtKg(arred2(C - inc))} kg.` };
   }
   if (dor) return { tipo: 'manter', texto: `Dor em ${ddmm(dor.data)}: mantenha ${fmtKg(C)} kg.` };
-  if (!todasNoTopo) return { tipo: 'manter', texto: `Mantenha ${fmtKg(C)} kg e busque ${topo}${un} em todas.` };
+  if (!todasNoTopo) return { tipo: 'manter', texto: `Mantenha ${fmtKg(C)} kg e busque pelo menos ${metaProxima(ult, campo, piso, topo, ehTempo)}${un} em cada.` };
   if (esforco > 8) return { tipo: 'manter', texto: `Mantenha ${fmtKg(C)} kg: esforço ${esforco} da última vez.` };
   const novo = arred2(C + inc), pct = C > 0 ? Math.round((inc / C) * 100) : 0; // TR-04 (0 kg: sem percentual)
   // salto acima de 10%: alternativa de ficar na carga e fazer mais repetições/tempo
@@ -1395,6 +1395,12 @@ function estadoProgressao(x, dataTela) {
 // Carga de trabalho = mediana das cargas (com número par de séries, a menor das duas do meio).
 // Meta: com essa carga em todas as séries, buscar o topo da faixa; se ficou abaixo do piso com ela, buscar o piso.
 // Todas as séries no topo → usar a maior carga em todas. A regra de reduzir (duas vezes abaixo do piso) só vale para carga igual.
+// 1.4.1: meta da próxima vez = pior série + 1 rep (+5 s no tempo), sem passar do topo e sem ficar abaixo do piso
+function metaProxima(series, campo, piso, topo, ehTempo) {
+  const v = series.map(r => r[campo]).filter(ehNum);
+  const base = v.length ? Math.min(...v) : piso - (ehTempo ? 5 : 1);
+  return Math.min(topo, Math.max(piso, base + (ehTempo ? 5 : 1)));
+}
 function progressaoMista(ult, { campo, piso, topo, ehTempo, esforco, dor, pausaLonga, semanasPausa }) {
   const un = ehTempo ? ' s' : ' reps';
   const ord = ult.map(r => r.carga_kg).sort((a, b) => a - b);
@@ -1410,9 +1416,8 @@ function progressaoMista(ult, { campo, piso, topo, ehTempo, esforco, dor, pausaL
   if (todasNoTopo && !(esforco > 8) && maior > M)
     return { tipo: 'aumentar', carga: maior, texto: `Todas no topo: use ${fmtKg(maior)} kg em todas.`, nota };
   if (esforco > 8) return { tipo: 'manter', carga: M, texto: `Esforço ${esforco} da última vez: use ${fmtKg(M)} kg em todas.`, nota };
-  const naM = ult.filter(r => r.carga_kg === M);
-  const alvo = naM.some(r => !ehNum(r[campo]) || r[campo] < piso) ? piso : topo;
-  return { tipo: 'manter', carga: M, texto: `Use ${fmtKg(M)} kg em todas e busque ${alvo}${un}.`, nota };
+  const alvo = metaProxima(ult.filter(r => r.carga_kg === M), campo, piso, topo, ehTempo);
+  return { tipo: 'manter', carga: M, texto: `Use ${fmtKg(M)} kg em todas e busque pelo menos ${alvo}${un} em cada.`, nota };
 }
 
 // TR-07: "Usar C kg" só preenche o campo de kg das séries pendentes (rascunho); nada é registrado
