@@ -125,6 +125,24 @@ details[open]>summary::before{transform:rotate(45deg)}
 .btn-iniciar .play{width:28px;height:28px;border-radius:50%;background:#0A0A0B;color:var(--txt);display:inline-flex;align-items:center;justify-content:center}
 .btn-iniciar .play svg{width:12px;height:12px}
 .fim-info{font-size:14px;color:var(--muted);margin:0 0 10px}
+ .sd{display:flex;flex-direction:column;align-items:center;gap:2px;min-height:62px;padding:6px 0;border-radius:14px;background:transparent;border:1px solid transparent;color:var(--txt);font-size:12px}
+.sd span{color:var(--muted2)}.sd em{font-style:normal;font-size:15px;font-weight:600}
+.sd.hoje{border-color:rgba(255,255,255,.3)}.sd.sel{background:var(--txt);color:#0A0A0B}.sd.sel span{color:#0A0A0B}
+.sd .pts{display:flex;gap:4px;height:7px;margin-top:4px}.sd.sel .pf{background:#0A0A0B}
+.cal-card .cab{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:16px}
+.cal-nav{width:44px;height:44px;border-radius:50%;font-size:24px;line-height:1;padding:0;background:transparent;border:1px solid var(--borda);color:var(--txt)}
+.cal-sem,.cal-grade{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal-sem{font-size:12px;color:var(--muted2);text-align:center;margin-bottom:4px}
+.cal-d,.cal-v{min-height:46px}
+.cal-d{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:4px 0;border-radius:14px;background:transparent;border:1px solid transparent;color:var(--txt);font-size:14px}
+.cal-d.hoje{font-weight:700;border-color:rgba(255,255,255,.3)}
+.cal-d.sel{background:var(--txt);color:#0A0A0B}
+.cal-d .pts{display:flex;gap:4px;height:7px;font-style:normal}
+.pf,.pc{display:inline-block;width:7px;height:7px;border-radius:50%}
+.pf{background:#fff}.pc{background:#FF5A36}
+.cal-d.sel .pf{background:#0A0A0B}
+.cal-leg{display:flex;gap:18px;justify-content:center;margin-top:10px;font-size:13px;color:var(--muted2)}
+.cal-leg span{display:flex;align-items:center;gap:8px}
 .semana-card .cab{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;font-size:15px}
 .semana-card .cab .muted{font-size:13px}
 .semana-dias{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;align-items:end}
@@ -354,7 +372,7 @@ dialog h2{font-size:24px;letter-spacing:-.03em}
    CONFIGURAÇÃO GERAL
    ========================================================================== */
 const APP_ID = 'treino-pwa';
-const APP_VERSAO = '1.6.0';
+const APP_VERSAO = '1.7.0';
 const CHAVES = {
   plano: 'treino.plano.v1',
   config: 'treino.config.v1',
@@ -481,7 +499,7 @@ const UI = {
   histModo: 'data', histEx: null,
   avisosImport: null, planoInvalido: null, erroGravacao: false,
   persistido: undefined, swReg: null, swEsperando: null, atualizando: false,
-  secaoAlvo: null,
+  secaoAlvo: null, calMes: null,
   rolarProximo: false,
   editCorrida: null,        // 1.4.0: "data|dia" da corrida aberta para edição
   importCorrida: null,      // 1.4.0: arquivo do relógio lido para outra data, aplicado depois de trocar a data      // 1.3.3: depois do render, rola até o próximo exercício pendente
@@ -783,15 +801,16 @@ function proximaData(idxDia, aPartirDe) { return somarDias(aPartirDe, (idxDia - 
 /* ==========================================================================
    TREINO (tela "Hoje" e registro por série)
    ========================================================================== */
-function diaPadrao(data) { // o dia do plano que cai nessa data; senão, o próximo
+const ehDiaCorrida = d => !!d && d.exercicios.some(x => x.tipo === 'corrida');
+const rotuloDia = d => (ehDiaCorrida(d) ? 'Corrida' : 'Força');
+function diaPadrao(data) { // 1.7.0: sem dia da semana. O treino que ainda não foi feito nessa data; se ambos, o feito há mais tempo
   const dias = diasDoPlano();
   if (!dias.length) return null;
-  const dw = diaDaSemana(data);
-  let melhor = dias[0], menor = 99;
-  for (const d of dias) {
-    const dist = (idxDiaSemana(d.dia_semana) - dw + 7) % 7;
-    if (dist < menor) { menor = dist; melhor = d; }
-  }
+  const feitosNaData = new Set([...S.registros.filter(r => r.data === data).map(r => r.dia), ...Sessao.finalizadas().filter(o => o.data === data).map(o => o.dia)]);
+  const cand = dias.filter(d => !feitosNaData.has(d.id));
+  const lista = cand.length ? cand : dias;
+  let melhor = lista[0], mel = '9999';
+  for (const d of lista) { const u = ultimaExecucao(d.id) || '0000'; if (u < mel) { mel = u; melhor = d; } }
   return melhor.id;
 }
 
@@ -799,7 +818,7 @@ function viewHoje() {
   const dia = diaPorId(UI.diaId) || diaPorId(diaPadrao(UI.data));
   UI.diaId = dia.id;
   const data = UI.data, semana = semanaEm(data), ehHoje = data === hoje();
-  const dwData = diaDaSemana(data), dwDia = idxDiaSemana(dia.dia_semana);
+  const dwData = diaDaSemana(data);
   const els = [];
 
   // 1.5.0: o treino em andamento fica no painel fixo do topo (desenharBarraSessao)
@@ -825,7 +844,7 @@ function viewHoje() {
     const ult = ultimaExecucao(d.id);
     return h('button', { type: 'button', role: 'tab', class: d.id === dia.id ? 'ativo' : '', 'aria-selected': String(d.id === dia.id),
       onclick: () => { UI.diaId = d.id; render(); } },
-      h('span', null, `${d.id} · ${NOMES_DIA_CURTO[idxDiaSemana(d.dia_semana)]}`),
+      h('span', null, rotuloDia(d)),
       h('span', { class: 'ult' }, ult ? `Última execução: ${fmtData(ult).slice(0, 5)}` : 'Ainda não feito'));
   })));
 
@@ -877,7 +896,6 @@ function viewHoje() {
   if (sPela != null && sPela > totalSemanas()) els.push(h('div', { class: 'aviso info' }, `As ${totalSemanas()} semanas do plano já passaram; a semana fica travada em ${totalSemanas()}.`));
   const pausa = avisoPausaSemana(data, semana, ehHoje);
   if (pausa) els.push(pausa);
-  if (dwDia !== dwData) els.push(h('div', { class: 'aviso info' }, `${dia.nome} é de ${NOMES_DIA[dwDia]} e a data escolhida é ${NOMES_DIA[dwData]}. Dá para registrar mesmo assim.`));
 
   els.push(cardSemana());
 
@@ -891,24 +909,55 @@ function viewHoje() {
   return els;
 }
 
-// Semana do calendário de hoje (seg a dom), não a "semana do plano".
-// Ponto cheio: alguma série registrada ou sessão finalizada naquele dia. Anel: dia de treino do plano.
+// 1.7.0: calendário do mês. Ponto branco = Força, ponto laranja = Corrida (um treino não depende do dia da semana).
+// Toque no dia: abre essa data na tela Hoje.
+function marcasDoDia() {
+  const m = new Map();
+  const add = (data, dia) => { const d = diaPorId(dia); const k = ehDiaCorrida(d) ? 'c' : 'f'; if (!m.has(data)) m.set(data, new Set()); m.get(data).add(k); };
+  for (const r of S.registros) if (typeof r.data === 'string') { if (r.tipo === 'corrida') { if (!m.has(r.data)) m.set(r.data, new Set()); m.get(r.data).add('c'); } else add(r.data, r.dia); }
+  for (const o of Sessao.finalizadas()) add(o.data, o.dia);
+  return m;
+}
+// Tira da semana (seg a dom) da data aberta: ponto branco = Força, laranja = Corrida. Toque abre o dia.
 function cardSemana() {
-  const hj = hoje(), seg = somarDias(hj, -((diaDaSemana(hj) + 6) % 7));
-  const feitos = new Set([...S.registros.map(r => r.data), ...Sessao.finalizadas().map(s => s.data)]);
-  const diasPlano = new Set(diasDoPlano().map(d => idxDiaSemana(d.dia_semana)));
-  let nFeitos = 0;
+  const hj = hoje(), seg = somarDias(UI.data, -((diaDaSemana(UI.data) + 6) % 7)), marcas = marcasDoDia();
   const cols = [0, 1, 2, 3, 4, 5, 6].map(i => {
-    const d = somarDias(seg, i), dw = diaDaSemana(d), feito = feitos.has(d), plano = diasPlano.has(dw);
-    if (feito) nFeitos++;
-    return h('div', { class: 'd' + (feito ? ' feito' : '') + (plano ? ' plano' : '') + (d === hj ? ' hoje' : ''), role: 'img',
-      'aria-label': `${NOMES_DIA[dw]}, ${fmtData(d).slice(0, 5)}: ${feito ? 'treinou' : (plano ? 'dia de treino' : 'descanso')}` },
-      NOMES_DIA_CURTO[dw].charAt(0).toUpperCase(), h('i'));
+    const d = somarDias(seg, i), dw = diaDaSemana(d), mk = marcas.get(d) || new Set();
+    return h('button', { type: 'button', class: 'sd' + (d === UI.data ? ' sel' : '') + (d === hj ? ' hoje' : ''),
+      'aria-label': `${NOMES_DIA[dw]}, ${fmtData(d).slice(0, 5)}: ${mk.size ? [mk.has('f') ? 'força' : '', mk.has('c') ? 'corrida' : ''].filter(Boolean).join(' e ') : 'sem treino'}`,
+      onclick: () => { UI.data = d; UI.dataManual = d !== hj; UI.diaId = diaPadrao(d); render(); } },
+      h('span', null, NOMES_DIA_CURTO[dw].charAt(0).toUpperCase()), h('em', null, String(partes(d)[2])),
+      h('i', { class: 'pts' }, mk.has('f') && h('b', { class: 'pf' }), mk.has('c') && h('b', { class: 'pc' })));
   });
-  const nPlano = diasPlano.size;
-  return h('section', { class: 'card semana-card' },
-    h('div', { class: 'cab' }, h('b', null, 'Esta semana'), h('span', { class: 'muted' }, `${nFeitos} de ${nPlano} treino${nPlano !== 1 ? 's' : ''}`)),
-    h('div', { class: 'semana-dias' }, cols));
+  return h('section', { class: 'card semana-card' }, h('div', { class: 'cab' }, h('b', null, 'Semana'), h('span', { class: 'muted' }, 'Toque no dia · calendário em Histórico')), h('div', { class: 'semana-dias' }, cols));
+}
+function cardCalendario(irHoje = false) {
+  const [yd, md] = partes(UI.data);
+  const [y, mo] = UI.calMes ? UI.calMes.split('-').map(Number) : [yd, md];
+  const marcas = marcasDoDia(), hj = hoje();
+  const primeiro = `${y}-${pad2(mo)}-01`, off = (diaDaSemana(primeiro) + 6) % 7; // semana começa na segunda
+  const nDias = new Date(Date.UTC(y, mo, 0)).getUTCDate();
+  let nF = 0, nC = 0;
+  const cels = [];
+  for (let i = 0; i < off; i++) cels.push(h('div', { class: 'cal-v' }));
+  for (let d = 1; d <= nDias; d++) {
+    const iso = `${y}-${pad2(mo)}-${pad2(d)}`, mk = marcas.get(iso) || new Set();
+    if (mk.has('f')) nF++; if (mk.has('c')) nC++;
+    const rot = `${NOMES_DIA[diaDaSemana(iso)]}, ${d} de ${NOMES_MES[mo - 1]}: ${mk.size ? [mk.has('f') ? 'força' : '', mk.has('c') ? 'corrida' : ''].filter(Boolean).join(' e ') : 'sem treino'}`;
+    cels.push(h('button', { type: 'button', class: 'cal-d' + (iso === UI.data ? ' sel' : '') + (iso === hj ? ' hoje' : ''), 'aria-label': rot,
+      onclick: () => { UI.data = iso; UI.dataManual = iso !== hj; UI.diaId = diaPadrao(iso); UI.calMes = null; if (irHoje) irPara('hoje'); else render(); } },
+      h('span', null, String(d)),
+      h('i', { class: 'pts' }, mk.has('f') && h('b', { class: 'pf' }), mk.has('c') && h('b', { class: 'pc' }))));
+  }
+  const mover = n => { const t = mo - 1 + n; UI.calMes = `${y + Math.floor(t / 12)}-${pad2(((t % 12) + 12) % 12 + 1)}`; render(); };
+  return h('section', { class: 'card cal-card' },
+    h('div', { class: 'cab' },
+      h('button', { type: 'button', class: 'cal-nav', 'aria-label': 'Mês anterior', onclick: () => mover(-1) }, '‹'),
+      h('b', null, `${cap(NOMES_MES[mo - 1])} de ${y}`),
+      h('button', { type: 'button', class: 'cal-nav', 'aria-label': 'Próximo mês', onclick: () => mover(1) }, '›')),
+    h('div', { class: 'cal-sem' }, ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'].map(l => h('span', null, l))),
+    h('div', { class: 'cal-grade' }, cels),
+    h('div', { class: 'cal-leg' }, h('span', null, h('b', { class: 'pf' }), `Força ${nF}`), h('span', null, h('b', { class: 'pc' }), `Corrida ${nC}`)));
 }
 // TR-02: a semana anda pelo calendário; depois de uma pausa, oferece voltar para onde parou.
 // M = semana do registro mais recente até a data da tela (o próprio dia conta, para o aviso sumir ao registrar).
@@ -2155,7 +2204,7 @@ function textoRelogio(rel) {
    HISTÓRICO (por data e por exercício)
    ========================================================================== */
 function viewHistorico() {
-  const els = [h('h1', null, 'Histórico'),
+  const els = [h('h1', null, 'Histórico'), cardCalendario(true),
     h('div', { class: 'seg' }, [['data', 'Por data'], ['ex', 'Por exercício']].map(([v, t]) =>
       h('button', { type: 'button', class: UI.histModo === v ? 'ativo' : '', onclick: () => { UI.histModo = v; render(false); } }, t)))];
   if (!S.registros.length && !Sessao.finalizadas().length) {
