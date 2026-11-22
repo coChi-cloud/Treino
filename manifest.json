@@ -1,8 +1,8 @@
 {
   "id": "./",
-  "name": "Treino",
-  "short_name": "Treino",
-  "description": "Controle pessoal do plano de treino",
+  "name": "Wellness",
+  "short_name": "Wellness",
+  "description": "Treino, corrida e evolução num só lugar",
   "lang": "pt-BR",
   "start_url": "./",
   "scope": "./",

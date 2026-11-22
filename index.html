@@ -8,9 +8,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<meta name="apple-mobile-web-app-title" content="Treino">
+<meta name="apple-mobile-web-app-title" content="Wellness">
 <meta name="format-detection" content="telephone=no">
-<title>Treino</title>
+<title>Wellness</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="icone-192.png">
 <link rel="apple-touch-icon" href="icone-192.png">
@@ -1318,6 +1318,7 @@ function abrirFolhaSessao(id, { fim = false, focarFim = false, focarRelogio = fa
     [rel.inicio && `início ${fmtHora(rel.inicio)}`, rel.duracao_s && fmtDuracao(rel.duracao_s)].filter(Boolean).join(' · ')));
   const btnRel = botaoRelogio('Importar arquivo do relógio', res => {
     rel = { fonte: res.fonte, inicio: res.inicio, duracao_s: res.decorrido_s ?? res.duracao_s, distancia_km: res.distancia_km };
+    if (res.detalhe && Array.isArray(res.detalhe.fc)) { const dt = res.detalhe; rel.detalhe = { v: 1, passo: dt.passo, fc: dt.fc, zonas: dt.zonas ?? null, te: dt.te ?? null, tea: dt.tea ?? null, carga: dt.carga ?? null }; }
     if (res.fc_media != null) inRFcm.value = res.fc_media;
     if (res.fc_max != null) inRFcx.value = res.fc_max;
     if (res.calorias != null) inRCal.value = res.calorias;
@@ -2258,7 +2259,8 @@ function blocoSessaoHist(s) {
     h('p', { class: 'muted' }, `Esforço: ${s.esforco != null ? s.esforco + '/10' : '—'} · ${dor}`),
     s.sessao_relogio && textoRelogio(s.sessao_relogio) && h('p', { class: 'muted' }, `Relógio: ${textoRelogio(s.sessao_relogio)}`),
     s.obs && h('p', { class: 'muted' }, s.obs),
-    h('button', { type: 'button', class: 'chip', onclick: () => abrirFolhaSessao(s.id) }, 'Editar sessão'));
+    h('div', { class: 'chips' }, h('button', { type: 'button', class: 'chip', onclick: () => abrirRelatorioAcademia(s) }, 'Relatório'),
+      h('button', { type: 'button', class: 'chip', onclick: () => abrirFolhaSessao(s.id) }, 'Editar sessão')));
 }
 
 function histPorExercicio() {
@@ -2454,7 +2456,7 @@ function mostrarErros(saida, titulo, erros) {
 
 function viewBoasVindas() {
   return [
-    h('h1', null, 'Treino'),
+    h('h1', null, 'Wellness'),
     UI.planoInvalido && h('div', { class: 'aviso erro' }, h('b', null, 'O plano salvo no app ficou inválido. Importe de novo:'),
       h('ul', null, UI.planoInvalido.slice(0, 10).map(e => h('li', null, e)))),
     !Armaz.disponivel && h('div', { class: 'aviso erro' }, 'Este navegador não deixa salvar dados (modo privado?). Abra o app instalado ou fora do modo privado.'),
@@ -3067,7 +3069,7 @@ function renderizarRelatorio(cv, a, fmt) {
     relDetalhado(c, a, W);
     let y = 770;
     for (const s of secoes) { s.desenhar(c, y); y += s.h + 28; }
-    relTexto(c, `${a.fonte ? 'Dados do relógio · arquivo ' + a.fonte.toUpperCase() + ' · ' : ''}gerado no app Treino`, W / 2, H - 70, { px: 24, peso: 500, cor: REL_COR.muted, al: 'center' });
+    relTexto(c, `${a.fonte ? 'Dados do relógio · arquivo ' + a.fonte.toUpperCase() + ' · ' : ''}gerado no app Wellness`, W / 2, H - 70, { px: 24, peso: 500, cor: REL_COR.muted, al: 'center' });
   }
   return { W, H };
 }
@@ -3413,6 +3415,153 @@ async function gravarPainel(cv, a, aoProgresso) {
   await new Promise(ok => { rec.onstop = ok; rec.stop(); });
   fluxo.getTracks().forEach(tr => tr.stop());
   return new Blob(partes, { type: mime.split(';')[0] });
+}
+
+/* ==========================================================================
+   RELATÓRIO DA ACADEMIA — 1.7.0: imagem da sessão (duração, volume, FC, zonas e exercícios).
+   Séries e cargas vêm do app; FC e zonas vêm do arquivo do relógio importado na sessão.
+   ========================================================================== */
+const ACAD_ZONAS_COR = ['#3F3F46', '#52525B', '#71717A', '#C4C4CC', '#FF9A82', '#FF5A36'];
+const fmtMilhar = n => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+function analisarAcademia(s) {
+  const rel = s.sessao_relogio || null;
+  const det = rel && rel.detalhe && Array.isArray(rel.detalhe.fc) && rel.detalhe.fc.filter(ehNum).length > 10 ? rel.detalhe : null;
+  const vol = L => L.reduce((p, r) => p + (ehNum(r.reps) && ehNum(r.carga_kg) ? r.reps * r.carga_kg : 0), 0);
+  const doDia = S.registros.filter(r => r.tipo !== 'corrida' && r.dia === s.dia);
+  const hoje_ = doDia.filter(r => r.data === s.data);
+  const antes = doDia.filter(r => r.data < s.data).map(r => r.data).sort().pop() || null;
+  const ant = antes ? agrupar(doDia.filter(r => r.data === antes), r => r.exercicio) : [];
+  const antMap = new Map(ant);
+  const ordem = ordemNoDia(s.dia);
+  const exs = agrupar(hoje_, r => r.exercicio).sort(([x], [y]) => ordem(x) - ordem(y)).map(([id, L]) => {
+    L = L.slice().sort((a, b) => a.serie - b.serie);
+    const reps = L.map(r => (r.duracao_s != null ? r.duracao_s : r.reps));
+    const unidade = L[0].duracao_s != null ? ' s' : '';
+    const cs = L.map(r => r.carga_kg).filter(v => ehNum(v) && v > 0);
+    const carga = !cs.length ? '' : new Set(cs).size === 1 ? fmtKg(cs[0]) : `${fmtKg(Math.min(...cs))}–${fmtKg(Math.max(...cs))}`;
+    const sub = (new Set(reps).size === 1 ? `${L.length} × ${reps[0]}${unidade}` : reps.join(' · ') + unidade) + (carga ? ` · ${carga} kg` : '');
+    const v = vol(L), va = antMap.has(id) ? vol(antMap.get(id)) : 0;
+    return { id, nome: nomeExercicio(id), sub, delta: v > 0 && va > 0 ? Math.round((v / va - 1) * 100) : null };
+  });
+  return {
+    s, rel, det, exs, antes, series: hoje_.length, volume: vol(hoje_),
+    dur: ehNum(rel?.duracao_s) ? rel.duracao_s : s.duracao_s, hora: rel?.inicio || s.inicio,
+    fcs: det ? det.fc : null, passo: det?.passo || PASSO_DETALHE, fcm: rel?.fc_media ?? null, fcx: rel?.fc_max ?? null,
+    zonas: det && Array.isArray(det.zonas) && det.zonas.length >= 6 && det.zonas.some(v => v > 0) ? det.zonas.slice(0, 6) : null
+  };
+}
+
+function renderizarAcademia(cv, A) {
+  const W = 1080, M = 72, gw = W - 2 * M, med = document.createElement('canvas').getContext('2d');
+  const tiles = [['Séries', A.series ? String(A.series) : null, ''], ['FC média', A.fcm != null ? String(A.fcm) : null, 'bpm'],
+    ['FC máx.', A.fcx != null ? String(A.fcx) : null, 'bpm'], ['Calorias', A.rel?.calorias != null ? fmtMilhar(A.rel.calorias) : null, 'kcal']].filter(t => t[1] != null);
+  let y = 560 + 170 + 28;
+  const yFC = y, hcFC = A.zonas ? 470 : 320; if (A.fcs) y += hcFC + 28;
+  const yEx = y, linhas = Math.ceil(A.exs.length / 2);
+  const H = yEx + (A.exs.length ? 90 + linhas * 128 : 0) + 150;
+  cv.width = W; cv.height = H;
+  const c = cv.getContext('2d');
+  relFundo(c, W, H);
+  c.beginPath(); c.arc(86, 86, 10, 0, 7); c.fillStyle = REL_COR.vivo; c.fill();
+  relTexto(c, 'ACADEMIA', 116, 98, { px: 30, peso: 600, ls: 7 });
+  const [yy, mm, dd] = partes(A.s.data);
+  relTexto(c, `${pad2(dd)} ${MESES_CURTO[mm - 1].toUpperCase()} ${yy}${A.hora ? ' · ' + fmtHora(A.hora) : ''}`, W - M, 98, { px: 26, peso: 500, cor: REL_COR.muted, ls: 5, al: 'right' });
+  // duração e volume
+  relRotulo(c, 'Duração', M, 200);
+  const minTot = Math.round((A.dur || 0) / 60), hh = Math.floor(minTot / 60), mi = minTot % 60;
+  const txtDur = A.dur == null ? '—' : hh ? `${hh}:${pad2(mi)}` : String(mi);
+  const wd = relTexto(c, txtDur, M - 6, 440, { px: 250, num: true, cor: REL_COR.vivo });
+  relTexto(c, A.dur == null ? '' : hh ? 'h' : 'min', M - 6 + wd + 12, 440, { px: 70, num: true, cor: REL_COR.muted });
+  if (A.volume > 0) {
+    relRotulo(c, 'Volume', W - M, 200, 'right');
+    const wv = relTexto(c, fmtMilhar(A.volume), W - M - 78, 340, { px: 130, num: true, al: 'right' });
+    relTexto(c, 'kg', W - M - 70, 340, { px: 44, num: true, cor: REL_COR.muted });
+    relTexto(c, 'carga total levantada', W - M, 395, { px: 24, peso: 500, cor: REL_COR.muted, al: 'right' });
+  }
+  // números
+  if (tiles.length) {
+    const lw = (gw - 18 * (tiles.length - 1)) / tiles.length;
+    tiles.forEach(([rot, val, un], k) => {
+      const x = M + k * (lw + 18);
+      relCartao(c, x, 560, lw, 170, 32);
+      relRotulo(c, rot, x + 26, 612);
+      const w = relTexto(c, val, x + 26, 700, { px: 82, num: true });
+      if (un) relTexto(c, un, x + 26 + w + 8, 700, { px: 28, peso: 500, cor: REL_COR.muted });
+    });
+  }
+  // batimentos e zonas
+  if (A.fcs) {
+    relCartao(c, M, yFC, gw, hcFC, 40);
+    relRotulo(c, 'Frequência cardíaca', M + 34, yFC + 62);
+    if (A.fcm != null) relTexto(c, `média ${A.fcm}`, W - M - 34, yFC + 62, { px: 24, peso: 600, cor: REL_COR.muted, ls: 3, al: 'right' });
+    relGraficoFC(c, A, M + 34, yFC + 90, gw - 68, 190, { eixos: false });
+    if (A.zonas) {
+      const Z = A.zonas, tot = Z.reduce((p, q) => p + q, 0), zx = M + 34, zw = gw - 68, zy = yFC + 330;
+      relRotulo(c, 'Tempo por zona de FC (do relógio)', zx, zy - 20);
+      let cx = zx;
+      Z.forEach((v, i) => { const w = (v / tot) * zw; if (w > 0) { rr(c, cx, zy, Math.max(w - 3, 3), 26, 7); c.fillStyle = ACAD_ZONAS_COR[i]; c.fill(); cx += w; } });
+      const itens = Z.map((v, i) => [i, v]).filter(([, v]) => v > 0);
+      const col = zw / itens.length;
+      itens.forEach(([i, v], k) => {
+        const lx = zx + k * col;
+        rr(c, lx, zy + 52, 16, 16, 5); c.fillStyle = ACAD_ZONAS_COR[i]; c.fill();
+        relTexto(c, `Z${i}`, lx + 26, zy + 67, { px: 24, peso: 700 });
+        relTexto(c, `${Math.round(v / 60)} min · ${Math.round((v / tot) * 100)}%`, lx, zy + 102, { px: 22, peso: 500, cor: REL_COR.muted });
+      });
+    }
+  }
+  // exercícios
+  if (A.exs.length) {
+    relRotulo(c, A.antes ? `Exercícios · variação de volume vs. ${fmtData(A.antes).slice(0, 5)}` : 'Exercícios', M, yEx + 40);
+    const lw = (gw - 16) / 2;
+    A.exs.forEach((e, k) => {
+      const x = M + (k % 2) * (lw + 16), yy2 = yEx + 70 + Math.floor(k / 2) * 128;
+      relCartao(c, x, yy2, lw, 112, 30);
+      c.save(); rr(c, x, yy2, lw, 112, 30); c.clip();
+      c.font = '600 27px Inter, system-ui, sans-serif';
+      let nome = e.nome; const lim = lw - 52;
+      while (c.measureText(nome).width > lim && nome.length > 4) nome = nome.slice(0, -2);
+      if (nome !== e.nome) nome = nome.trimEnd() + '…';
+      relTexto(c, nome, x + 26, yy2 + 46, { px: 27, peso: 600 });
+      relTexto(c, e.sub, x + 26, yy2 + 85, { px: 22, peso: 500, cor: REL_COR.muted });
+      if (e.delta != null) relTexto(c, e.delta > 0 ? `+${e.delta}%` : e.delta < 0 ? `${e.delta}%` : '=', x + lw - 26, yy2 + 85, { px: 28, peso: 700, al: 'right', cor: e.delta > 0 ? REL_COR.vivo : REL_COR.muted });
+      c.restore();
+    });
+  }
+  relTexto(c, `${A.rel?.fonte ? 'FC e zonas do relógio · ' : ''}gerado no app Wellness`, W / 2, H - 70, { px: 24, peso: 500, cor: REL_COR.muted, al: 'center' });
+}
+
+async function abrirRelatorioAcademia(sessao) {
+  const dlg = $('#dlg');
+  const fechar = () => (dlg.close ? dlg.close() : dlg.removeAttribute('open'));
+  const A = analisarAcademia(sessao);
+  const tela = h('canvas', { class: 'rel-tela', role: 'img', 'aria-label': 'Prévia do relatório da academia' });
+  const nome = `wellness-academia-${pad2(partes(sessao.data)[2])}-${pad2(partes(sessao.data)[1])}-${partes(sessao.data)[0]}.png`;
+  const blob = () => new Promise(ok => tela.toBlob(ok, 'image/png'));
+  const salvar = async () => {
+    const b = await blob(); if (!b) return toast('Não consegui gerar a imagem.', 'erro');
+    const url = URL.createObjectURL(b), link = h('a', { href: url, download: nome });
+    document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000); toast('Imagem baixada');
+  };
+  const compartilhar = async () => {
+    const b = await blob(); if (!b) return toast('Não consegui gerar a imagem.', 'erro');
+    try { await navigator.share({ files: [new File([b], nome, { type: 'image/png' })], title: 'Academia ' + fmtData(sessao.data) }); }
+    catch (e) { if (e && e.name !== 'AbortError') toast('Não consegui compartilhar. Use "Salvar imagem".', 'erro'); }
+  };
+  const podeCompartilhar = typeof navigator.canShare === 'function' && typeof navigator.share === 'function'
+    && navigator.canShare({ files: [new File([new Blob(['x'])], 'x.png', { type: 'image/png' })] });
+  dlg.replaceChildren(h('div', null,
+    h('h2', null, 'Relatório da academia'),
+    h('p', { class: 'muted' }, `${cap(NOMES_DIA[diaDaSemana(sessao.data)])}, ${fmtData(sessao.data)} · ${A.series} séries`),
+    h('div', { class: 'acoes' },
+      h('button', { type: 'button', class: 'btn-pri', onclick: salvar }, 'Salvar imagem'),
+      podeCompartilhar && h('button', { type: 'button', onclick: compartilhar }, 'Compartilhar')),
+    A.det ? null : h('p', { class: 'muted' }, 'Importe o arquivo do relógio na sessão (Editar sessão) para incluir batimentos e zonas.'),
+    tela,
+    h('button', { type: 'button', class: 'btn-bloco', onclick: fechar }, 'Fechar')));
+  if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
+  await relFontes(); renderizarAcademia(tela, A);
 }
 
 /* ==========================================================================
