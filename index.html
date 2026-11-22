@@ -24,7 +24,7 @@
 :root{
   --bg:#070708;--txt:#F5F5F7;--muted:#A1A1A6;--muted2:#8E8E93;
   --vidro:rgba(255,255,255,.07);--vidro2:rgba(255,255,255,.10);--borda:rgba(255,255,255,.10);--borda2:rgba(255,255,255,.16);
-  --campo:rgba(0,0,0,.32);--ok:#32D74B;--warn:#FF9F0A;--err:#FF453A;--info:#64D2FF;--vivo:#FF5A36;
+  --campo:rgba(0,0,0,.32);--ok:#32D74B;--warn:#FF9F0A;--err:#FF453A;--info:#64D2FF;--vivo:#2F55F0;--vivo-txt:#6C8CFF;
   --num:'Barlow Condensed',system-ui,sans-serif;--mola:cubic-bezier(.2,.8,.2,1);
   --nav-h:60px;--nav-b:16px;--topo-h:0px;--sessao-h:0px;--sb:env(safe-area-inset-bottom,0px);
 }
@@ -36,7 +36,7 @@ body{margin:0;min-height:100vh;color:var(--txt);
   padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) 0 env(safe-area-inset-left,0px)}
 body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;background:
   radial-gradient(circle 440px at 100% 0%,rgba(255,255,255,.17),transparent 65%),
-  radial-gradient(circle 400px at 0% 72%,rgba(255,106,61,.17),transparent 65%),
+  radial-gradient(circle 400px at 0% 72%,rgba(47,85,240,.22),transparent 65%),
   radial-gradient(circle 300px at 100% 45%,rgba(130,150,255,.12),transparent 65%),var(--bg)}
 main{max-width:640px;margin:0 auto;padding:calc(16px + var(--topo-h)) 14px calc(var(--nav-h) + var(--nav-b) + var(--sb) + 28px)}
 #main .card,#main [id]{scroll-margin-top:calc(var(--topo-h) + 12px)}
@@ -139,7 +139,7 @@ details[open]>summary::before{transform:rotate(45deg)}
 .cal-d.sel{background:var(--txt);color:#0A0A0B}
 .cal-d .pts{display:flex;gap:4px;height:7px;font-style:normal}
 .pf,.pc{display:inline-block;width:7px;height:7px;border-radius:50%}
-.pf{background:#fff}.pc{background:#FF5A36}
+.pf{background:#fff}.pc{background:var(--vivo)}
 .cal-d.sel .pf{background:#0A0A0B}
 .cal-leg{display:flex;gap:18px;justify-content:center;margin-top:10px;font-size:13px;color:var(--muted2)}
 .cal-leg span{display:flex;align-items:center;gap:8px}
@@ -272,7 +272,7 @@ button.link{background:none;border:0;padding:0;min-height:0;color:var(--txt);tex
 #timer .t-meta{color:var(--muted);font-size:13px}
 #timer .t-parar{align-self:flex-start;margin-top:4px;min-height:44px;padding:0 18px;font-size:14px}
 #timer.pronto .t-prog{stroke:var(--vivo)}
-#timer.pronto .t-meta{color:var(--vivo)}
+#timer.pronto .t-meta{color:var(--vivo-txt)}
 #timer.passou .t-prog{stroke:var(--warn)}
 #timer.passou .t-meta{color:var(--warn)}
 #timer.pisca{animation:pisca .35s ease-in-out 4}
@@ -909,7 +909,7 @@ function viewHoje() {
   return els;
 }
 
-// 1.7.0: calendário do mês. Ponto branco = Academia, ponto laranja = Corrida (um treino não depende do dia da semana).
+// 1.7.0: calendário do mês. Ponto branco = Academia, ponto azul = Corrida (um treino não depende do dia da semana).
 // Toque no dia: abre essa data na tela Hoje.
 function marcasDoDia() {
   const m = new Map();
@@ -918,7 +918,7 @@ function marcasDoDia() {
   for (const o of Sessao.finalizadas()) add(o.data, o.dia);
   return m;
 }
-// Tira da semana (seg a dom) da data aberta: ponto branco = Academia, laranja = Corrida. Toque abre o dia.
+// Tira da semana (seg a dom) da data aberta: ponto branco = Academia, azul = Corrida. Toque abre o dia.
 function cardSemana() {
   const hj = hoje(), seg = somarDias(UI.data, -((diaDaSemana(UI.data) + 6) % 7)), marcas = marcasDoDia();
   const cols = [0, 1, 2, 3, 4, 5, 6].map(i => {
@@ -2570,7 +2570,7 @@ function apagarTudo() {
    do relógio (batimentos, ritmo e percurso a cada 5 s). Sem detalhe, mostra só os totais.
    ========================================================================== */
 const MESES_CURTO = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-const REL_COR = { fundo: '#070708', txt: '#F5F5F7', muted: '#A1A1A6', vivo: '#FF5A36' };
+const REL_COR = { fundo: '#070708', txt: '#F5F5F7', muted: '#A1A1A6', vivo: '#2F55F0', vivoTxt: '#6C8CFF' };
 const REL_FORMATOS = [
   { id: 'painel', nome: 'Painel', w: 1080, h: 1920 }, // 1.7.0: o mesmo desenho do vídeo, no último quadro
   { id: 'stories', nome: 'Stories', w: 1080, h: 1920 },
@@ -2682,7 +2682,7 @@ function relFundo(c, w, h) {
     c.fillStyle = g; c.fillRect(0, 0, w, h);
   };
   brilho(w, 0, 1180, '255,255,255', 0.17);
-  brilho(0, h * 0.72, 1080, '255,106,61', 0.17);
+  brilho(0, h * 0.72, 1080, '47,85,240', 0.22);
   brilho(w, h * 0.45, 800, '130,150,255', 0.12);
 }
 function relCartao(c, x, y, w, h, r = 52) {
@@ -2700,13 +2700,13 @@ function relCabecalho(c, a, y) {
   const hora = relHora(a);
   relTexto(c, `CORRIDA · ${relDataTxt(a).toUpperCase()}${hora ? ' · ' + hora.toUpperCase() : ''}`, REL_M, y, { px: 30, peso: 600, cor: REL_COR.muted, ls: 6 });
 }
-// número grande + unidade em laranja
+// número grande + unidade em azul
 function relHero(c, a, y, px) {
   const val = a.km != null ? fmtKm(a.km) : a.t != null ? fmtTempo(a.t) : '—';
   const w = relTexto(c, val, REL_M - 6, y, { px, num: true });
-  if (a.km != null) relTexto(c, 'km', REL_M - 6 + w + px * 0.07, y, { px: px * 0.3, num: true, cor: REL_COR.vivo });
+  if (a.km != null) relTexto(c, 'km', REL_M - 6 + w + px * 0.07, y, { px: px * 0.3, num: true, cor: REL_COR.vivoTxt });
 }
-// linha de números com barra laranja à esquerda
+// linha de números com barra azul à esquerda
 function relStats(c, itens, x, y, w, { px = 110, alt = 150 } = {}) {
   const lista = itens.filter(i => i && i.val != null);
   if (!lista.length) return;
@@ -2725,7 +2725,7 @@ const relItensBase = a => [
   a.kcal != null ? { rot: 'Calorias', val: String(a.kcal), un: 'kcal' } : a.fcm != null ? { rot: 'FC média', val: String(a.fcm), un: 'bpm' } : null
 ].filter(Boolean);
 
-// percurso: ida em laranja, volta tracejada; largada, retorno e chegada marcados
+// percurso: ida em azul, volta tracejada; largada, retorno e chegada marcados
 function relRota(c, a, bx, by, bw, bh, { rotulos = true, esp = 9, brilho = false } = {}) {
   const P = a.rota;
   if (!P || P.length < 2) return false;
@@ -2738,7 +2738,7 @@ function relRota(c, a, bx, by, bw, bh, { rotulos = true, esp = 9, brilho = false
   const traco = (de, ate) => { c.beginPath(); for (let j = de; j <= ate; j++) (j === de ? c.moveTo(X(P[j]), Y(P[j])) : c.lineTo(X(P[j]), Y(P[j]))); c.stroke(); };
   c.save();
   c.lineCap = 'round'; c.lineJoin = 'round';
-  if (brilho) { c.shadowColor = 'rgba(255,90,54,.75)'; c.shadowBlur = 36; }
+  if (brilho) { c.shadowColor = 'rgba(47,85,240,.8)'; c.shadowBlur = 36; }
   c.strokeStyle = REL_COR.vivo; c.lineWidth = esp; traco(0, k);
   c.shadowBlur = 0;
   if (a.retorno) { c.strokeStyle = 'rgba(245,245,247,.82)'; c.lineWidth = esp * 0.55; c.setLineDash([esp * 1.7, esp * 1.5]); traco(k, P.length - 1); c.setLineDash([]); }
@@ -2821,7 +2821,7 @@ function relGraficoFC(c, a, x, y, w, h, { eixos = true } = {}) {
   c.save();
   c.beginPath(); pts.forEach(([px, py], i) => (i ? c.lineTo(px, py) : c.moveTo(px, py)));
   c.lineTo(pts[pts.length - 1][0], gy + gh); c.lineTo(pts[0][0], gy + gh); c.closePath();
-  const g = c.createLinearGradient(0, gy, 0, gy + gh); g.addColorStop(0, 'rgba(255,90,54,.30)'); g.addColorStop(1, 'rgba(255,90,54,0)');
+  const g = c.createLinearGradient(0, gy, 0, gy + gh); g.addColorStop(0, 'rgba(47,85,240,.34)'); g.addColorStop(1, 'rgba(47,85,240,0)');
   c.fillStyle = g; c.fill();
   c.beginPath(); pts.forEach(([px, py], i) => (i ? c.lineTo(px, py) : c.moveTo(px, py)));
   c.lineJoin = 'round'; c.lineCap = 'round'; c.lineWidth = eixos ? 6 : 5; c.strokeStyle = REL_COR.vivo; c.stroke();
@@ -2947,7 +2947,7 @@ function relPoster(c, a, W, H) {
   else relTexto(c, 'sem GPS nesta corrida', W / 2, 600, { px: 32, peso: 500, cor: REL_COR.muted, al: 'center' });
   const val = a.km != null ? fmtKm(a.km) : a.t != null ? fmtTempo(a.t) : '—';
   const w = relTexto(c, val, REL_M - 6, 1170, { px: 270, num: true });
-  if (a.km != null) relTexto(c, 'km', REL_M - 6 + w + 18, 1170, { px: 80, num: true, cor: REL_COR.vivo });
+  if (a.km != null) relTexto(c, 'km', REL_M - 6 + w + 18, 1170, { px: 80, num: true, cor: REL_COR.vivoTxt });
   const l = [a.t != null && fmtTempo(a.t), a.pace && `${fmtPace(a.pace)} /km`].filter(Boolean).join('   ·   ');
   relTexto(c, l, REL_M, 1260, { px: 36, peso: 600, cor: REL_COR.muted });
 }
@@ -3277,7 +3277,7 @@ function pnChip(c, a, P, e, idx) {
   relCartao(c, cx, cy, PN_CHIP.w, PN_CHIP.h, 30);
   relTexto(c, `KM ${idx + 1}`, cx + 28, cy + 44, { px: 22, peso: 600, cor: REL_COR.muted, ls: 4 });
   let xx = cx + 28;
-  xx += relTexto(c, fmtPace(par.pace), xx, cy + 112, { px: 70, num: true, cor: REL_COR.vivo }) + 8;
+  xx += relTexto(c, fmtPace(par.pace), xx, cy + 112, { px: 70, num: true, cor: REL_COR.vivoTxt }) + 8;
   xx += relTexto(c, '/km', xx, cy + 112, { px: 26, peso: 500, cor: REL_COR.muted }) + 22;
   if (par.fc != null) {
     xx += relTexto(c, String(par.fc), xx, cy + 112, { px: 70, num: true }) + 8;
@@ -3295,7 +3295,7 @@ function pnPercurso(c, a, P, e, kmAtual) {
   linha(pt.length - 1); c.lineWidth = sw; c.strokeStyle = 'rgba(255,255,255,.14)'; c.stroke();
   if (e.dm > 0) {
     const parcial = () => { c.beginPath(); pt.slice(0, atual.j + 1).forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.lineTo(atual.x, atual.y); };
-    c.shadowColor = 'rgba(255,90,54,.85)'; c.shadowBlur = 34; parcial(); c.lineWidth = sw; c.strokeStyle = REL_COR.vivo; c.stroke();
+    c.shadowColor = 'rgba(47,85,240,.9)'; c.shadowBlur = 34; parcial(); c.lineWidth = sw; c.strokeStyle = REL_COR.vivo; c.stroke();
     c.shadowBlur = 0; parcial(); c.stroke();
   }
   c.restore();
@@ -3311,7 +3311,7 @@ function pnPercurso(c, a, P, e, kmAtual) {
   });
   c.beginPath(); c.arc(atual.x, atual.y, sw * 1.05, 0, 7);
   c.save(); c.shadowColor = REL_COR.vivo; c.shadowBlur = 40; c.fillStyle = '#fff'; c.fill(); c.restore();
-  c.beginPath(); c.arc(atual.x, atual.y, sw * 1.05 + sw * 0.25, 0, 7); c.lineWidth = sw * 0.5; c.strokeStyle = 'rgba(255,90,54,.55)'; c.stroke();
+  c.beginPath(); c.arc(atual.x, atual.y, sw * 1.05 + sw * 0.25, 0, 7); c.lineWidth = sw * 0.5; c.strokeStyle = 'rgba(47,85,240,.6)'; c.stroke();
   if (e.hold) pnChip(c, a, P, e, e.hold - 1);
 }
 
