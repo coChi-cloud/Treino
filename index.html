@@ -258,6 +258,7 @@ button.link{background:none;border:0;padding:0;min-height:0;color:var(--txt);tex
 #timer.passou .t-prog{stroke:var(--warn)}
 #timer.passou .t-meta{color:var(--warn)}
 #timer.pisca{animation:pisca .35s ease-in-out 4}
+.rel-tela{display:block;width:100%;height:auto;margin:14px 0 4px;border-radius:20px;border:1px solid var(--borda)}
 
 /* navegação: pílula de vidro flutuante */
 #nav{position:fixed;left:50%;bottom:calc(var(--nav-b) + var(--sb));transform:translateX(-50%);z-index:31;display:flex;gap:6px;padding:6px;border-radius:999px;
@@ -353,7 +354,7 @@ dialog h2{font-size:24px;letter-spacing:-.03em}
    CONFIGURAÇÃO GERAL
    ========================================================================== */
 const APP_ID = 'treino-pwa';
-const APP_VERSAO = '1.5.0';
+const APP_VERSAO = '1.6.0';
 const CHAVES = {
   plano: 'treino.plano.v1',
   config: 'treino.config.v1',
@@ -1608,6 +1609,53 @@ async function lerArquivoRelogio(arquivo) {
   return completarRelogio(res);
 }
 
+/* ==========================================================================
+   DETALHE DO TREINO — 1.6.0: a série completa do relógio (FC, ritmo, cadência, altitude,
+   GPS) reduzida a um ponto a cada 5 s e guardada junto com a corrida, para o relatório.
+   pontos brutos: [{ t (s desde o início), fc, cad, v (m/s), alt (m), lat, lon }]
+   ========================================================================== */
+const PASSO_DETALHE = 5;
+const mediaDe = v => (v.length ? v.reduce((a, b) => a + b, 0) / v.length : null);
+
+function subidaDePontos(pontos) { // soma das subidas da altitude suavizada (média de 5 leituras)
+  const alt = pontos.map(p => p.alt).filter(ehNum);
+  if (alt.length < 5) return null;
+  const sua = alt.map((_, i) => mediaDe(alt.slice(Math.max(0, i - 2), i + 3)));
+  let s = 0;
+  for (let i = 1; i < sua.length; i++) if (sua[i] > sua[i - 1]) s += sua[i] - sua[i - 1];
+  return s;
+}
+
+function montarDetalhe(r) {
+  const pts = (r.pontos || []).filter(p => ehNum(p.t) && p.t >= 0);
+  if (pts.length < 20) return null;
+  const mult = r.esporte === 'corrida' ? 2 : 1; // cadência do relógio vem em passos de um pé
+  const n = Math.floor(pts[pts.length - 1].t / PASSO_DETALHE) + 1;
+  const bal = Array.from({ length: n }, () => ({ fc: [], cad: [], v: [], alt: [], lat: null, lon: null }));
+  for (const p of pts) {
+    const b = bal[Math.min(n - 1, Math.floor(p.t / PASSO_DETALHE))];
+    if (ehNum(p.fc) && p.fc > 0) b.fc.push(p.fc);
+    if (ehNum(p.cad) && p.cad > 0) b.cad.push(p.cad * mult);
+    if (ehNum(p.v) && p.v >= 0) b.v.push(p.v);
+    if (ehNum(p.alt)) b.alt.push(p.alt);
+    if (ehNum(p.lat) && ehNum(p.lon)) { b.lat = p.lat; b.lon = p.lon; }
+  }
+  const col = (f) => bal.map(f);
+  const arred = (v, esc) => (v == null ? null : Math.round(v * esc));
+  const det = {
+    v: 1, passo: PASSO_DETALHE, fonte: r.fonte,
+    fc: col(b => arred(mediaDe(b.fc), 1)),
+    vel: col(b => arred(mediaDe(b.v), 100)),         // cm/s
+    alt: col(b => arred(mediaDe(b.alt), 10)),        // dm
+    cad: col(b => arred(mediaDe(b.cad), 1)),         // passos/min
+    lat: col(b => arred(b.lat, 1e5)), lon: col(b => arred(b.lon, 1e5))
+  };
+  if (r.voltas_fit?.length) det.parciais = r.voltas_fit;
+  for (const [k, v] of [['zonas', r.zonas], ['te', r.te], ['tea', r.tea], ['carga', r.carga], ['desc', r.descida_m],
+    ['passo_mm', r.passo_mm], ['fc_min', r.fc_min], ['cad_max', r.cad_max]]) if (v != null) det[k] = v;
+  return det;
+}
+
 function completarRelogio(r) {
   const n = (v, casas = 0) => (ehNum(v) && v > 0 ? Math.round(v * 10 ** casas) / 10 ** casas : null);
   const out = {
@@ -1616,10 +1664,11 @@ function completarRelogio(r) {
     duracao_s: n(r.duracao_s), decorrido_s: n(r.decorrido_s ?? r.duracao_s),
     distancia_km: n(r.distancia_m != null ? r.distancia_m / 1000 : null, 2),
     fc_media: n(r.fc_media), fc_max: n(r.fc_max), calorias: n(r.calorias),
-    subida_m: n(r.subida_m), cadencia_spm: n(r.cadencia_spm)
+    subida_m: n(r.subida_m), cadencia_spm: n(r.cadencia_spm), detalhe: null
   };
   if (ehNum(r.inicio_ms)) { const d = new Date(r.inicio_ms); out.inicio = dataHoraLocal(d); out.data = dataISO(d); }
   if (out.distancia_km != null && out.distancia_km < 0.05) out.distancia_km = null;
+  out.detalhe = montarDetalhe(r);
   if (out.fc_media != null && out.fc_max != null && out.fc_media > out.fc_max) out.fc_media = null;
   if (out.duracao_s == null && out.distancia_km == null && out.fc_media == null)
     throw new Error('O arquivo não tem dados de treino (tempo, distância ou batimentos).');
@@ -1682,7 +1731,13 @@ function lerFIT(buf) {
     const d = defs[local];
     if (!d) throw new Error('Arquivo .fit danificado (mensagem sem definição).');
     const m = {};
-    for (const c of d.campos) { if (p + c.size > buf.byteLength) break; m[c.num] = campoFIT(dv, p, c, d.le); p += c.size; }
+    for (const c of d.campos) {
+      if (p + c.size > buf.byteLength) break;
+      if (d.glob === 18 && c.num === 65 && c.size >= 4 && c.size % 4 === 0) { // tempo em cada zona de FC (lista)
+        m[65] = []; for (let i = 0; i < c.size; i += 4) { const z = dv.getUint32(p + i, d.le); m[65].push(z === 0xFFFFFFFF ? null : z / 1000); }
+      } else m[c.num] = campoFIT(dv, p, c, d.le);
+      p += c.size;
+    }
     p += d.dev;
     if (m[253] != null) ultTs = m[253];
     else if (tsComp != null) m[253] = tsComp;
@@ -1710,7 +1765,19 @@ function lerFIT(buf) {
   const codEsporte = resumo.map(o => o[5]).filter(ehNum)[0] ?? esporteMsg;
   const esporte = { 1: 'corrida', 11: 'caminhada', 2: 'bike', 10: 'forca', 4: 'forca' }[codEsporte] || (codEsporte != null ? 'outro' : null);
   const cad = soma(resumo, 18) != null ? soma(resumo, 18) / resumo.filter(o => ehNum(o[18])).length : null;
+  const ses = sessoes[0] || null, ts0 = tsPontos[0] ?? 0, graus = v => (ehNum(v) ? (v * 180) / 2147483648 : null);
+  const pontosFit = pontos.filter(o => ehNum(o[253])).map(o => ({
+    t: o[253] - ts0, fc: o[3], cad: o[4],
+    v: ehNum(o[6]) ? o[6] / 1000 : ehNum(o[73]) ? o[73] / 1000 : null,
+    alt: ehNum(o[2]) ? o[2] / 5 - 500 : ehNum(o[78]) ? o[78] / 5 - 500 : null,
+    lat: graus(o[0]), lon: graus(o[1]) }));
+  const mult = esporte === 'corrida' ? 2 : 1;
   return {
+    pontos: pontosFit,
+    voltas_fit: sessoes.length && voltas.length > 1 ? voltas.filter(o => o[9] > 0 && o[8] > 0).map(o => ({ m: Math.round(o[9]) / 100, s: o[8] / 1000, fc: ehNum(o[15]) ? o[15] : null })) : null,
+    zonas: ses?.[65] || null, te: ehNum(ses?.[24]) ? ses[24] / 10 : null, tea: ehNum(ses?.[137]) ? ses[137] / 10 : null,
+    carga: ehNum(ses?.[168]) ? ses[168] / 65536 : null, descida_m: ses?.[23] ?? null,
+    passo_mm: ehNum(ses?.[134]) ? ses[134] / 10 : null, fc_min: ses?.[64] ?? null, cad_max: ehNum(ses?.[19]) ? ses[19] * mult : null,
     fonte: 'fit', esporte,
     inicio_ms: inicioFit != null ? (inicioFit + FIT_EPOCA) * 1000 : null,
     duracao_s: soma(resumo, 8, 1000) ?? soma(resumo, 7, 1000) ?? decorridoPontos,
@@ -1752,14 +1819,23 @@ function lerTCX(txt) {
   const inicio = Date.parse(voltas[0]?.getAttribute('StartTime') || filho(atv, 'Id')?.textContent || '') || tempos[0] || null;
   const distPts = pts.map(t => numDe(filho(t, 'DistanceMeters'))).filter(ehNum);
   const sport = (atv.getAttribute('Sport') || '').toLowerCase();
+  const pontos = pts.map(tp => {
+    const t = Date.parse(filho(tp, 'Time')?.textContent || '');
+    if (!ehNum(t) || !ehNum(tempos[0])) return null;
+    const pos = filho(tp, 'Position');
+    return { t: (t - tempos[0]) / 1000, fc: numDe(filho(filho(tp, 'HeartRateBpm'), 'Value')), cad: numDe(filho(tp, 'Cadence')), v: numDe(tags(tp, 'Speed')[0]),
+      alt: numDe(filho(tp, 'AltitudeMeters')), lat: numDe(filho(pos, 'LatitudeDegrees')), lon: numDe(filho(pos, 'LongitudeDegrees')) };
+  }).filter(Boolean);
+  const cadMed = mediaDe(pontos.map(o => o.cad).filter(v => ehNum(v) && v > 0));
   return {
-    fonte: 'tcx', esporte: sport === 'running' ? 'corrida' : sport === 'biking' ? 'bike' : sport ? 'outro' : null,
+    pontos, fonte: 'tcx', esporte: sport === 'running' ? 'corrida' : sport === 'biking' ? 'bike' : sport ? 'outro' : null,
     inicio_ms: inicio, duracao_s: dur,
     decorrido_s: tempos.length > 1 && inicio ? (tempos[tempos.length - 1] - inicio) / 1000 : dur,
     distancia_m: soma(l => numDe(filho(l, 'DistanceMeters'))) || (distPts.length ? distPts[distPts.length - 1] : null),
     fc_media: fcMedia,
     fc_max: maxVoltas.length ? Math.max(...maxVoltas) : (fcPts.length ? Math.max(...fcPts) : null),
-    calorias: soma(l => numDe(filho(l, 'Calories'))), subida_m: null, cadencia_spm: null
+    calorias: soma(l => numDe(filho(l, 'Calories'))), subida_m: subidaDePontos(pontos),
+    cadencia_spm: sport === 'running' && cadMed ? cadMed * 2 : null
   };
 }
 
@@ -1769,7 +1845,7 @@ function lerGPX(txt) {
   if (!pts.length) throw new Error('O arquivo .gpx não tem pontos do percurso.');
   const R = 6371000, rad = g => (g * Math.PI) / 180;
   let dist = 0, subida = 0, ant = null, eleAnt = null;
-  const fc = [], tempos = [];
+  const fc = [], tempos = [], brutos = [];
   for (const pt of pts) {
     const lat = Number(pt.getAttribute('lat')), lon = Number(pt.getAttribute('lon'));
     if (ant && ehNum(lat) && ehNum(lon)) {
@@ -1785,16 +1861,21 @@ function lerGPX(txt) {
     const elFc = tags(pt, 'hr')[0] || tags(pt, 'heartrate')[0];
     const v = numDe(elFc);
     if (ehNum(v) && v > 0) fc.push(v);
+    brutos.push({ tms: t, fc: v, cad: numDe(tags(pt, 'cad')[0]), v: numDe(tags(pt, 'speed')[0]), alt: ehNum(ele) ? ele : null, lat, lon });
   }
-  const tipo = (tags(doc, 'trk')[0] && filho(tags(doc, 'trk')[0], 'type')?.textContent || '').toLowerCase();
+  const pontos = ehNum(tempos[0]) ? brutos.filter(o => ehNum(o.tms)).map(o => ({ ...o, t: (o.tms - tempos[0]) / 1000 })) : [];
+  const cadMed = mediaDe(pontos.map(o => o.cad).filter(v => ehNum(v) && v > 0));
+  const trk0 = tags(doc, 'trk')[0];
+  const tipo = ((trk0 && (filho(trk0, 'type')?.textContent || filho(trk0, 'name')?.textContent)) || '').toLowerCase();
   const dec = tempos.length > 1 ? (tempos[tempos.length - 1] - tempos[0]) / 1000 : null;
+  const esporteGpx = /run|corr/.test(tipo) ? 'corrida' : null;
   return {
-    fonte: 'gpx', esporte: /run|corr/.test(tipo) ? 'corrida' : /walk|camin/.test(tipo) ? 'caminhada' : /bik|cycl/.test(tipo) ? 'bike' : null,
+    pontos, fonte: 'gpx', esporte: /run|corr/.test(tipo) ? 'corrida' : /walk|camin/.test(tipo) ? 'caminhada' : /bik|cycl/.test(tipo) ? 'bike' : null,
     inicio_ms: tempos[0] ?? null, duracao_s: dec, decorrido_s: dec,
     distancia_m: dist > 0 ? dist : null,
     fc_media: fc.length ? fc.reduce((a, b) => a + b, 0) / fc.length : null,
     fc_max: fc.length ? Math.max(...fc) : null,
-    calorias: null, subida_m: subida >= 1 ? subida : null, cadencia_spm: null
+    calorias: null, subida_m: subida >= 1 ? subida : null, cadencia_spm: esporteGpx && cadMed ? cadMed * 2 : null
   };
 }
 
@@ -1821,7 +1902,7 @@ function botaoRelogio(rotulo, aoLer) {
    Registro: { tipo:'corrida', exercicio:'corrida', serie:1, distancia_km, tempo_s, tempo_min,
                fc_media, fc_max, obs, [calorias, subida_m, cadencia_spm, fonte, inicio_relogio] }
    ========================================================================== */
-const EXTRAS_CORRIDA = ['calorias', 'subida_m', 'cadencia_spm', 'fonte', 'inicio_relogio'];
+const EXTRAS_CORRIDA = ['calorias', 'subida_m', 'cadencia_spm', 'fonte', 'inicio_relogio', 'detalhe'];
 const tempoDe = r => (ehNum(r.tempo_s) ? r.tempo_s : ehNum(r.tempo_min) ? r.tempo_min * 60 : null);
 const paceDe = r => { const t = tempoDe(r); return r.distancia_km > 0 && t > 0 ? t / r.distancia_km : null; };
 const fmtKm = km => (Math.round(km * 100) / 100).toFixed(2).replace('.', ',');
@@ -1896,6 +1977,7 @@ function formCorrida(data, dia, antigo) {
     for (const k of EXTRAS_CORRIDA) delete extras[k];
     for (const k of ['calorias', 'subida_m', 'cadencia_spm']) if (res[k] != null) extras[k] = res[k];
     extras.fonte = res.fonte;
+    if (res.detalhe) extras.detalhe = res.detalhe; // batimentos, ritmo e percurso a cada 5 s (usado no relatório)
     if (res.inicio) extras.inicio_relogio = res.inicio;
     atualizar();
     const itens = [res.distancia_km != null && `${fmtKm(res.distancia_km)} km`, res.duracao_s != null && fmtTempo(res.duracao_s),
@@ -1985,7 +2067,9 @@ function cardCorrida(x, dia, data) {
     if (r.obs) card.append(h('p', { class: 'muted cr-extra' }, r.obs));
     const marcos = marcosCorrida(r);
     if (marcos.length) card.append(h('div', { class: 'hero-chips' }, marcos.map(m => h('span', { class: 'pilula' }, m))));
-    card.append(h('button', { type: 'button', class: 'chip', onclick: () => { UI.editCorrida = chaveCorrida(data, dia.id); render(); } }, 'Editar corrida'));
+    card.append(h('div', { class: 'chips' },
+      h('button', { type: 'button', class: 'chip', onclick: () => abrirRelatorioCorrida(r) }, 'Relatório'),
+      h('button', { type: 'button', class: 'chip', onclick: () => { UI.editCorrida = chaveCorrida(data, dia.id); render(); } }, 'Editar corrida')));
     return card;
   }
   const ult = !r && corridasComPace().filter(o => o.data < data).pop();
@@ -2012,7 +2096,9 @@ function histCorrida() {
   if (comPace.length >= 2) els.push(graficoPace(comPace.slice(-20)));
   for (const r of todas) els.push(h('div', { class: 'hist-ex' },
     h('div', { class: 'hist-nome' }, `${cap(NOMES_DIA_CURTO[diaDaSemana(r.data)])}, ${fmtData(r.data)}`),
-    h('button', { type: 'button', class: 'chip', onclick: () => abrirCorridaNoDia(r) }, textoCorrida(r)),
+    h('div', { class: 'chips' },
+      h('button', { type: 'button', class: 'chip', onclick: () => abrirCorridaNoDia(r) }, textoCorrida(r)),
+      h('button', { type: 'button', class: 'chip', onclick: () => abrirRelatorioCorrida(r) }, 'Relatório')),
     linhaExtrasCorrida(r) && h('p', { class: 'muted' }, linhaExtrasCorrida(r))));
   return els;
 }
@@ -2427,6 +2513,558 @@ function apagarTudo() {
   UI.rascunhos = {}; UI.aba = 'hoje';
   toast('Dados apagados');
   render(false);
+}
+
+/* ==========================================================================
+   RELATÓRIO DA CORRIDA — 1.6.0: imagem (PNG) para salvar ou compartilhar, em quatro formatos.
+   Desenhado no aparelho, em canvas, sem internet. Usa o "detalhe" guardado ao importar o arquivo
+   do relógio (batimentos, ritmo e percurso a cada 5 s). Sem detalhe, mostra só os totais.
+   ========================================================================== */
+const MESES_CURTO = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const REL_COR = { fundo: '#070708', txt: '#F5F5F7', muted: '#A1A1A6', vivo: '#FF5A36' };
+const REL_FORMATOS = [
+  { id: 'stories', nome: 'Stories', w: 1080, h: 1920 },
+  { id: 'feed', nome: 'Feed', w: 1080, h: 1350 },
+  { id: 'poster', nome: 'Pôster', w: 1080, h: 1350 },
+  { id: 'detalhado', nome: 'Detalhado', w: 1080, h: null } // altura conforme o conteúdo
+];
+const REL_M = 84; // margem lateral
+
+// ---------- análise: transforma o registro em números prontos para desenhar ----------
+function analisarCorrida(r) {
+  const d = r.detalhe && r.detalhe.v === 1 && Array.isArray(r.detalhe.vel) && r.detalhe.vel.length > 10 ? r.detalhe : null;
+  const a = {
+    r, d, km: r.distancia_km > 0 ? r.distancia_km : null, t: tempoDe(r), pace: paceDe(r),
+    fcm: r.fc_media ?? null, fcx: r.fc_max ?? null, kcal: r.calorias ?? null, cad: r.cadencia_spm ?? null,
+    subida: r.subida_m ?? null, fonte: r.fonte ?? null, passo: d?.passo || PASSO_DETALHE, ritmo: [], parciais: [], rota: null, retorno: null,
+    fcs: null, zonas: null, alts: null
+  };
+  if (!d) return a;
+  const n = d.vel.length, p = a.passo;
+  const bruto = [0];
+  const comGps = d.lat.filter(v => v != null).length >= n * 0.9;
+  if (comGps) { // distância andada entre as posições de cada bloco de 5 s
+    const kx = 111320 * Math.cos((d.lat.find(v => v != null) / 1e5 * Math.PI) / 180);
+    let ant = null;
+    for (let i = 0; i < n; i++) {
+      const la = d.lat[i], lo = d.lon[i];
+      let passoM = 0;
+      if (la != null && lo != null) { if (ant) passoM = Math.hypot(((lo - ant[1]) / 1e5) * kx, ((la - ant[0]) / 1e5) * 110540); ant = [la, lo]; }
+      bruto.push(bruto[i] + passoM);
+    }
+  } else for (let i = 0; i < n; i++) bruto.push(bruto[i] + ((d.vel[i] ?? 0) / 100) * p);
+  const k = a.km && bruto[n] > 0 ? (a.km * 1000) / bruto[n] : 1; // ajusta o GPS à distância oficial do relógio
+  a.dist = bruto.map(v => v * k);
+  const total = a.dist[n];
+  const tempoEm = m => { // segundo (desde o início) em que passou pelo metro m
+    let i = 0;
+    while (i < n - 1 && a.dist[i + 1] < m) i++;
+    const d0 = a.dist[i], d1 = a.dist[i + 1];
+    return (i + (d1 > d0 ? Math.min(1, Math.max(0, (m - d0) / (d1 - d0))) : 0)) * p;
+  };
+  const fcEntre = (t0, t1) => {
+    const v = (d.fc || []).slice(Math.floor(t0 / p), Math.max(Math.floor(t0 / p) + 1, Math.ceil(t1 / p))).filter(ehNum);
+    return v.length ? Math.round(v.reduce((x, y) => x + y, 0) / v.length) : null;
+  };
+  for (let m = 250; m <= total + 0.5; m += 250) a.ritmo.push({ m, pace: (tempoEm(m) - tempoEm(m - 250)) / 0.25 });
+  // parciais por km: usa as voltas do relógio quando existem; senão calcula pelo GPS
+  if (d.parciais?.length) {
+    let t0 = 0;
+    for (const v of d.parciais) {
+      if (v.m >= 100 && v.s > 0) a.parciais.push({ m: v.m, s: v.s, pace: v.s / (v.m / 1000), fc: v.fc ?? fcEntre(t0, t0 + v.s) });
+      t0 += v.s;
+    }
+  } else {
+    for (let m = 1000, ini = 0; ini < total - 100; m += 1000) {
+      const fim = Math.min(m, total), t0 = tempoEm(ini), t1 = tempoEm(fim);
+      a.parciais.push({ m: fim - ini, s: t1 - t0, pace: (t1 - t0) / ((fim - ini) / 1000), fc: fcEntre(t0, t1) });
+      ini = fim;
+    }
+  }
+  a.fcs = (d.fc || []).some(ehNum) ? d.fc : null;
+  if (Array.isArray(d.zonas) && d.zonas.length >= 6 && d.zonas.slice(1).some(v => v > 0)) a.zonas = d.zonas.slice(1, 6);
+  if (Array.isArray(d.alt) && d.alt.some(ehNum)) a.alts = d.alt.map(v => (v == null ? null : v / 10));
+  // percurso: projeção simples em metros; o primeiro ponto é a largada
+  const pts = [];
+  d.lat.forEach((la, i) => { if (la != null && d.lon[i] != null) pts.push({ i, la: la / 1e5, lo: d.lon[i] / 1e5 }); });
+  if (pts.length >= 10) {
+    const la0 = pts[0].la, lo0 = pts[0].lo, kx = 111320 * Math.cos((la0 * Math.PI) / 180);
+    a.rota = pts.map(q => ({ i: q.i, x: (q.lo - lo0) * kx, y: (q.la - la0) * 110540 }));
+    let far = 0, dfar = 0;
+    a.rota.forEach((q, j) => { const dd = Math.hypot(q.x, q.y); if (dd > dfar) { dfar = dd; far = j; } });
+    const fim = a.rota[a.rota.length - 1], dfim = Math.hypot(fim.x, fim.y);
+    if (far < a.rota.length * 0.9 && dfim < dfar * 0.6) a.retorno = { j: far, m: a.dist[a.rota[far].i] };
+  }
+  return a;
+}
+
+function relDataTxt(a) {
+  const [y, m, d] = partes(a.r.data);
+  return `${NOMES_DIA[diaDaSemana(a.r.data)]}, ${d} ${MESES_CURTO[m - 1]} ${y}`;
+}
+const relHora = a => (a.r.inicio_relogio ? fmtHora(a.r.inicio_relogio).replace(':', 'h') : null);
+const relKm1 = m => (Math.round(m / 100) / 10).toFixed(1).replace('.', ',');
+
+// ---------- peças de desenho ----------
+function rr(c, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  c.beginPath(); c.moveTo(x + r, y);
+  c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+}
+function relTexto(c, s, x, y, { px = 30, peso = 600, cor = REL_COR.txt, al = 'left', ls = 0, num = false } = {}) {
+  c.font = `${num ? 500 : peso} ${px}px ${num ? '"Barlow Condensed"' : 'Inter'}, system-ui, sans-serif`;
+  c.fillStyle = cor; c.textAlign = al; c.textBaseline = 'alphabetic';
+  if ('letterSpacing' in c) c.letterSpacing = ls ? ls + 'px' : '0px';
+  c.fillText(s, x, y);
+  const w = c.measureText(s).width;
+  if ('letterSpacing' in c) c.letterSpacing = '0px';
+  return w;
+}
+const relRotulo = (c, s, x, y, al = 'left') => relTexto(c, s.toUpperCase(), x, y, { px: 24, peso: 600, cor: REL_COR.muted, ls: 5, al });
+
+function relFundo(c, w, h) {
+  c.fillStyle = REL_COR.fundo; c.fillRect(0, 0, w, h);
+  const brilho = (cx, cy, raio, rgb, al) => {
+    const g = c.createRadialGradient(cx, cy, 0, cx, cy, raio);
+    g.addColorStop(0, `rgba(${rgb},${al})`); g.addColorStop(0.65, `rgba(${rgb},0)`);
+    c.fillStyle = g; c.fillRect(0, 0, w, h);
+  };
+  brilho(w, 0, 1180, '255,255,255', 0.17);
+  brilho(0, h * 0.72, 1080, '255,106,61', 0.17);
+  brilho(w, h * 0.45, 800, '130,150,255', 0.12);
+}
+function relCartao(c, x, y, w, h, r = 52) {
+  c.save();
+  rr(c, x, y, w, h, r);
+  const g = c.createLinearGradient(0, y, 0, y + h);
+  g.addColorStop(0, 'rgba(255,255,255,.09)'); g.addColorStop(1, 'rgba(255,255,255,.04)');
+  c.fillStyle = g; c.fill();
+  c.lineWidth = 2; c.strokeStyle = 'rgba(255,255,255,.11)'; c.stroke();
+  c.beginPath(); c.moveTo(x + r, y + 1); c.lineTo(x + w - r, y + 1);
+  c.strokeStyle = 'rgba(255,255,255,.18)'; c.stroke();
+  c.restore();
+}
+function relCabecalho(c, a, y) {
+  const hora = relHora(a);
+  relTexto(c, `CORRIDA · ${relDataTxt(a).toUpperCase()}${hora ? ' · ' + hora.toUpperCase() : ''}`, REL_M, y, { px: 30, peso: 600, cor: REL_COR.muted, ls: 6 });
+}
+// número grande + unidade em laranja
+function relHero(c, a, y, px) {
+  const val = a.km != null ? fmtKm(a.km) : a.t != null ? fmtTempo(a.t) : '—';
+  const w = relTexto(c, val, REL_M - 6, y, { px, num: true });
+  if (a.km != null) relTexto(c, 'km', REL_M - 6 + w + px * 0.07, y, { px: px * 0.3, num: true, cor: REL_COR.vivo });
+}
+// linha de números com barra laranja à esquerda
+function relStats(c, itens, x, y, w, { px = 110, alt = 150 } = {}) {
+  const lista = itens.filter(i => i && i.val != null);
+  if (!lista.length) return;
+  const col = w / lista.length;
+  lista.forEach((it, k) => {
+    const cx = x + k * col;
+    c.fillStyle = REL_COR.vivo; c.fillRect(cx, y, 4, alt);
+    relRotulo(c, it.rot, cx + 26, y + 30);
+    const vw = relTexto(c, it.val, cx + 26, y + alt - 6, { px, num: true });
+    if (it.un) relTexto(c, it.un, cx + 26 + vw + 8, y + alt - 6, { px: 32, peso: 600, cor: REL_COR.muted });
+  });
+}
+const relItensBase = a => [
+  a.t != null && { rot: 'Tempo', val: fmtTempo(a.t) },
+  a.pace && { rot: 'Ritmo médio', val: fmtPace(a.pace), un: '/km' },
+  a.kcal != null ? { rot: 'Calorias', val: String(a.kcal), un: 'kcal' } : a.fcm != null ? { rot: 'FC média', val: String(a.fcm), un: 'bpm' } : null
+].filter(Boolean);
+
+// percurso: ida em laranja, volta tracejada; largada, retorno e chegada marcados
+function relRota(c, a, bx, by, bw, bh, { rotulos = true, esp = 9, brilho = false } = {}) {
+  const P = a.rota;
+  if (!P || P.length < 2) return false;
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const q of P) { x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
+  const s = Math.min(bw / Math.max(x1 - x0, 1), bh / Math.max(y1 - y0, 1));
+  const ox = bx + (bw - (x1 - x0) * s) / 2, oy = by + (bh - (y1 - y0) * s) / 2;
+  const X = q => ox + (q.x - x0) * s, Y = q => oy + (y1 - q.y) * s;
+  const k = a.retorno ? a.retorno.j : P.length - 1;
+  const traco = (de, ate) => { c.beginPath(); for (let j = de; j <= ate; j++) (j === de ? c.moveTo(X(P[j]), Y(P[j])) : c.lineTo(X(P[j]), Y(P[j]))); c.stroke(); };
+  c.save();
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  if (brilho) { c.shadowColor = 'rgba(255,90,54,.75)'; c.shadowBlur = 36; }
+  c.strokeStyle = REL_COR.vivo; c.lineWidth = esp; traco(0, k);
+  c.shadowBlur = 0;
+  if (a.retorno) { c.strokeStyle = 'rgba(245,245,247,.82)'; c.lineWidth = esp * 0.55; c.setLineDash([esp * 1.7, esp * 1.5]); traco(k, P.length - 1); c.setLineDash([]); }
+  const ponto = (q, cor, raio, anel) => { c.beginPath(); c.arc(X(q), Y(q), raio, 0, 7); c.fillStyle = cor; c.fill(); if (anel) { c.lineWidth = 4; c.strokeStyle = '#070708'; c.stroke(); } };
+  const ini = P[0], fim = P[P.length - 1];
+  if (a.retorno) ponto(P[k], '#9A9AA2', esp * 1.15, true);
+  ponto(fim, '#FFFFFF', esp * 1.35, true);
+  ponto(ini, REL_COR.vivo, esp * 1.5, true);
+  if (rotulos) {
+    const usados = [];
+    const rot = (q, txt, cor) => { // testa quatro posições e fica com a que menos encosta no traço e nos outros rótulos
+      c.font = '600 28px Inter, system-ui, sans-serif';
+      const lw = c.measureText(txt).width;
+      let melhor = null;
+      for (const [dir, baixo] of [[1, true], [-1, true], [1, false], [-1, false]]) {
+        const rx = dir > 0 ? X(q) + 24 : X(q) - 24 - lw, ry = Y(q) + (baixo ? 12 : -50);
+        const caixa = [rx - 8, ry - 8, rx + lw + 8, ry + 46];
+        let custo = 0;
+        for (const o of P) { const ox = X(o), oy = Y(o); if (ox > caixa[0] && ox < caixa[2] && oy > caixa[1] && oy < caixa[3]) custo++; }
+        for (const u of usados) if (caixa[0] < u[2] && caixa[2] > u[0] && caixa[1] < u[3] && caixa[3] > u[1]) custo += 1000;
+        if (caixa[0] < bx - 40 || caixa[2] > bx + bw + 40) custo += 500;
+        if (!melhor || custo < melhor.custo) melhor = { custo, caixa, rx, ry, dir };
+      }
+      usados.push(melhor.caixa);
+      relTexto(c, txt, melhor.rx, melhor.ry + 30, { px: 28, peso: 600, cor });
+    };
+    rot(ini, 'Largada', REL_COR.txt);
+    if (a.retorno) rot(P[k], `Retorno · ${relKm1(a.retorno.m)} km`, REL_COR.muted);
+    rot(fim, `Chegada · ${a.km != null ? relKm1(a.km * 1000) + ' km' : ''}`, REL_COR.txt);
+  }
+  c.restore();
+  return true;
+}
+
+// barras do ritmo a cada 250 m: mais alta = mais rápida
+function relBarrasRitmo(c, a, x, y, w, h) {
+  const R = a.ritmo;
+  if (R.length < 2) return;
+  const vel = R.map(v => 1 / v.pace), vmax = Math.max(...vel);
+  const base = y + h - 46, topo = y + 70, util = base - topo;
+  const slot = w / R.length, larg = slot * 0.62;
+  const rapido = vel.indexOf(vmax), lento = vel.indexOf(Math.min(...vel));
+  const media = a.pace ? 1 / a.pace : vel.reduce((p, q) => p + q, 0) / vel.length;
+  c.fillStyle = 'rgba(255,255,255,.14)'; c.fillRect(x, base, w, 2);
+  const ym0 = base - (media / vmax) * util;
+  R.forEach((v, i) => {
+    const bh = Math.max(8, (vel[i] / vmax) * util), bx = x + i * slot + (slot - larg) / 2;
+    rr(c, bx, base - bh, larg, bh, 9);
+    c.fillStyle = i === rapido ? REL_COR.vivo : i === lento ? REL_COR.txt : 'rgba(255,255,255,.26)';
+    c.fill();
+    if (i === rapido || i === lento || (i === R.length - 1 && Math.abs(i - lento) > 1 && Math.abs(i - rapido) > 1)) relTexto(c, fmtPace(v.pace), bx + larg / 2, (Math.abs(base - bh - 14 - ym0) < 24 ? ym0 - 22 : base - bh - 14), { px: 27, peso: 700, al: 'center', cor: i === rapido ? REL_COR.vivo : REL_COR.txt });
+    if (R.length <= 14 || i % 2 === 1) relTexto(c, String(v.m), bx + larg / 2, base + 34, { px: 22, peso: 500, cor: REL_COR.muted, al: 'center' });
+  });
+  const ym = base - (media / vmax) * util;
+  c.save(); c.setLineDash([10, 10]); c.strokeStyle = 'rgba(245,245,247,.55)'; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(x, ym); c.lineTo(x + w, ym); c.stroke(); c.restore();
+  const wm = relTexto(c, `média ${fmtPace(1 / media)}`, x + w, y + 28, { px: 25, peso: 600, cor: REL_COR.muted, al: 'right' });
+  c.save(); c.setLineDash([9, 8]); c.strokeStyle = 'rgba(245,245,247,.55)'; c.lineWidth = 2; c.beginPath(); c.moveTo(x + w - wm - 62, y + 20); c.lineTo(x + w - wm - 18, y + 20); c.stroke(); c.restore();
+}
+
+// batimentos ao longo do treino
+function relGraficoFC(c, a, x, y, w, h, { eixos = true } = {}) {
+  const S = a.fcs;
+  if (!S) return;
+  const v = S.filter(ehNum), lo0 = Math.min(...v), hi0 = Math.max(...v);
+  const lo = Math.floor((lo0 - 5) / 10) * 10, hi = Math.ceil((hi0 + 5) / 10) * 10;
+  const ml = eixos ? 78 : 0, gx = x + ml, gw = w - ml, gy = y + (eixos ? 8 : 4), gh = h - (eixos ? 58 : 8);
+  const X = i => gx + (i / (S.length - 1)) * gw, Y = f => gy + (1 - (f - lo) / (hi - lo)) * gh;
+  if (eixos) {
+    const passos = 3;
+    for (let k = 0; k <= passos; k++) {
+      const f = lo + ((hi - lo) * k) / passos, yy = Y(f);
+      c.fillStyle = 'rgba(255,255,255,.10)'; c.fillRect(gx, yy, gw, 2);
+      relTexto(c, String(Math.round(f)), gx - 16, yy + 8, { px: 22, peso: 500, cor: REL_COR.muted, al: 'right' });
+    }
+    const dur = (S.length - 1) * a.passo, marc = dur > 2400 ? 10 : 5;
+    for (let m = 0; m * 60 <= dur; m += marc) relTexto(c, m === 0 ? '0' : `${m} min`, gx + (m * 60 / dur) * gw, y + h - 12, { px: 22, peso: 500, cor: REL_COR.muted, al: m === 0 ? 'left' : 'center' });
+  }
+  const pts = []; S.forEach((f, i) => { if (ehNum(f)) pts.push([X(i), Y(f)]); });
+  c.save();
+  c.beginPath(); pts.forEach(([px, py], i) => (i ? c.lineTo(px, py) : c.moveTo(px, py)));
+  c.lineTo(pts[pts.length - 1][0], gy + gh); c.lineTo(pts[0][0], gy + gh); c.closePath();
+  const g = c.createLinearGradient(0, gy, 0, gy + gh); g.addColorStop(0, 'rgba(255,90,54,.30)'); g.addColorStop(1, 'rgba(255,90,54,0)');
+  c.fillStyle = g; c.fill();
+  c.beginPath(); pts.forEach(([px, py], i) => (i ? c.lineTo(px, py) : c.moveTo(px, py)));
+  c.lineJoin = 'round'; c.lineCap = 'round'; c.lineWidth = eixos ? 6 : 5; c.strokeStyle = REL_COR.vivo; c.stroke();
+  if (eixos && a.fcm != null) {
+    c.setLineDash([10, 10]); c.strokeStyle = 'rgba(245,245,247,.5)'; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(gx, Y(a.fcm)); c.lineTo(gx + gw, Y(a.fcm)); c.stroke(); c.setLineDash([]);
+  }
+  const im = S.findIndex(f => f === hi0);
+  c.beginPath(); c.arc(X(im), Y(hi0), eixos ? 9 : 7, 0, 7); c.fillStyle = '#fff'; c.fill();
+  if (eixos) relTexto(c, `${a.fcx ?? hi0} máx.`, Math.min(X(im), gx + gw - 6), Y(hi0) - 22, { px: 26, peso: 700, al: X(im) > gx + gw - 90 ? 'right' : 'center' });
+  c.restore();
+}
+
+function relZonas(c, a, x, y, w) {
+  const Z = a.zonas, tot = Z.reduce((p, q) => p + q, 0);
+  if (!tot) return;
+  const cores = ['rgba(255,255,255,.16)', 'rgba(255,255,255,.28)', 'rgba(255,255,255,.44)', 'rgba(255,255,255,.70)', REL_COR.vivo];
+  let cx = x;
+  c.save();
+  rr(c, x, y, w, 30, 15); c.clip();
+  Z.forEach((s, i) => { const ww = (s / tot) * w; c.fillStyle = cores[i]; c.fillRect(cx, y, ww, 30); cx += ww; });
+  c.restore();
+  const col = w / 5;
+  Z.forEach((s, i) => {
+    const lx = x + i * col;
+    c.beginPath(); c.arc(lx + 9, y + 70, 8, 0, 7); c.fillStyle = cores[i]; c.fill();
+    relTexto(c, `Z${i + 1}`, lx + 26, y + 79, { px: 24, peso: 700 });
+    relTexto(c, `${Math.round((s / tot) * 100)}% · ${fmtTempo(s)}`, lx, y + 118, { px: 23, peso: 500, cor: REL_COR.muted });
+  });
+}
+
+function relQuebrar(c, texto, larg) {
+  const L = []; let l = '';
+  for (const p of texto.split(' ')) {
+    const t = l ? l + ' ' + p : p;
+    if (c.measureText(t).width > larg && l) { L.push(l); l = p; } else l = t;
+  }
+  if (l) L.push(l);
+  return L;
+}
+const relRelevo = a => {
+  if (a.subida == null || !a.km) return null;
+  const m = a.subida / a.km;
+  return { nome: m < 10 ? 'Plano' : m < 25 ? 'Ondulado' : 'Com subidas', sub: `subida total de ~${a.subida} m` };
+};
+const relZonaPrincipal = a => { if (!a.zonas) return null; const t = a.zonas.reduce((p, q) => p + q, 0), m = Math.max(...a.zonas); return { z: a.zonas.indexOf(m) + 1, pct: Math.round((m / t) * 100) }; };
+
+function relTextos(a) { // frases curtas do relatório detalhado, só com o que dá para afirmar
+  const out = [], P = a.parciais.filter(p => p.m >= 900);
+  if (P.length >= 2) {
+    const p1 = P[0].pace, p2 = P[P.length - 1].pace, dif = p2 - p1;
+    if (dif > 10) out.push(`O ritmo foi caindo: o 1º km saiu em ${fmtPace(p1)} e o último em ${fmtPace(p2)} por km.`);
+    else if (dif < -10) out.push(`Você acelerou: o 1º km saiu em ${fmtPace(p1)} e o último em ${fmtPace(p2)} por km.`);
+    else out.push(`Ritmo estável, entre ${fmtPace(Math.min(...P.map(p => p.pace)))} e ${fmtPace(Math.max(...P.map(p => p.pace)))} por km.`);
+  }
+  if (a.fcm != null) {
+    const z = relZonaPrincipal(a);
+    out.push(`Batimentos: média de ${a.fcm} bpm${a.fcx != null ? ` e máximo de ${a.fcx}` : ''}${z && z.pct >= 40 ? `; ${z.pct}% do tempo na zona ${z.z} do relógio` : ''}.`);
+  }
+  return out;
+}
+
+const relAviso = (c, x, y, w, texto) => {
+  relCartao(c, x, y, w, 190);
+  c.font = '500 30px Inter, system-ui, sans-serif';
+  relQuebrar(c, texto, w - 80).slice(0, 3).forEach((l, i) => relTexto(c, l, x + 40, y + 72 + i * 42, { px: 30, peso: 500, cor: REL_COR.muted }));
+};
+const SEM_DETALHE = 'Esta corrida não tem o detalhe do relógio. Importe o arquivo FIT na corrida para ver percurso, batimentos e ritmo por trecho.';
+
+// ---------- formatos ----------
+function relStories(c, a, W, H) {
+  relCabecalho(c, a, 215);
+  relHero(c, a, 520, 350);
+  relStats(c, relItensBase(a), REL_M, 585, W - 2 * REL_M);
+  const gx = REL_M, gw = W - 2 * REL_M, topo = 790;
+  if (!a.d) { relAviso(c, gx, topo, gw, SEM_DETALHE); return; }
+  const esq = 500, dir = gw - esq - 24, hG = 650, mini = (hG - 48) / 3;
+  if (a.rota) {
+    relCartao(c, gx, topo, esq, hG);
+    relTexto(c, 'Percurso', gx + 38, topo + 74, { px: 40, peso: 700 });
+    relTexto(c, a.retorno ? `ida de ${relKm1(a.retorno.m)} km e volta de ${relKm1((a.km || 0) * 1000 - a.retorno.m)} km` : 'trajeto registrado pelo GPS', gx + 38, topo + 118, { px: 27, peso: 500, cor: REL_COR.muted });
+    relRota(c, a, gx + 60, topo + 190, esq - 120, hG - 250, { esp: 8 });
+  } else relAviso(c, gx, topo, esq, 'Sem GPS nesta corrida.');
+  const dx = gx + esq + 24;
+  relCartao(c, dx, topo, dir, mini);
+  relRotulo(c, 'Batimentos', dx + 36, topo + 60);
+  const fw = relTexto(c, String(a.fcm ?? '—'), dx + 36, topo + 136, { px: 96, num: true });
+  relTexto(c, 'bpm', dx + 36 + fw + 8, topo + 136, { px: 28, peso: 600, cor: REL_COR.muted });
+  if (a.fcx != null) relTexto(c, `máx. ${a.fcx}`, dx + 36, topo + mini - 20, { px: 26, peso: 500, cor: REL_COR.muted });
+  const y2 = topo + mini + 24;
+  relCartao(c, dx, y2, dir, mini);
+  relRotulo(c, 'Cadência', dx + 36, y2 + 60);
+  const cw = relTexto(c, String(a.cad ?? '—'), dx + 36, y2 + 140, { px: 96, num: true });
+  if (a.cad != null) relTexto(c, 'ppm', dx + 36 + cw + 8, y2 + 140, { px: 28, peso: 600, cor: REL_COR.muted });
+  const y3 = y2 + mini + 24, rel = relRelevo(a);
+  relCartao(c, dx, y3, dir, mini);
+  relRotulo(c, 'Relevo', dx + 36, y3 + 60);
+  relTexto(c, rel ? rel.nome : '—', dx + 36, y3 + 140, { px: 84, num: true });
+  if (rel) relTexto(c, rel.sub, dx + 36, y3 + mini - 26, { px: 26, peso: 500, cor: REL_COR.muted });
+  const yp = topo + hG + 26, hp = 400;
+  if (a.ritmo.length >= 2) {
+    relCartao(c, gx, yp, gw, hp);
+    relTexto(c, 'Ritmo a cada 250 m', gx + 38, yp + 74, { px: 40, peso: 700 });
+    relTexto(c, 'barra mais alta = mais rápido', gx + 38, yp + 116, { px: 27, peso: 500, cor: REL_COR.muted });
+    relBarrasRitmo(c, a, gx + 38, yp + 110, gw - 76, hp - 126);
+  }
+}
+
+function relFeed(c, a, W, H) {
+  relCabecalho(c, a, 130);
+  relHero(c, a, 390, 280);
+  const gw = W - 2 * REL_M, topo = 440, hc = 560;
+  if (a.rota) {
+    relCartao(c, REL_M, topo, gw, hc);
+    relRota(c, a, REL_M + 90, topo + 70, gw - 180, hc - 150, { esp: 10 });
+  } else relAviso(c, REL_M, topo, gw, a.d ? 'Sem GPS nesta corrida.' : SEM_DETALHE);
+  relStats(c, relItensBase(a), REL_M, topo + hc + 50, gw, { px: 120, alt: 160 });
+}
+
+function relPoster(c, a, W, H) {
+  relTexto(c, relDataTxt(a).toUpperCase(), W / 2, 150, { px: 30, peso: 600, cor: REL_COR.muted, ls: 8, al: 'center' });
+  if (a.rota) relRota(c, a, 150, 230, W - 300, 640, { rotulos: false, esp: 14, brilho: true });
+  else relTexto(c, 'sem GPS nesta corrida', W / 2, 600, { px: 32, peso: 500, cor: REL_COR.muted, al: 'center' });
+  const val = a.km != null ? fmtKm(a.km) : a.t != null ? fmtTempo(a.t) : '—';
+  const w = relTexto(c, val, REL_M - 6, 1170, { px: 270, num: true });
+  if (a.km != null) relTexto(c, 'km', REL_M - 6 + w + 18, 1170, { px: 80, num: true, cor: REL_COR.vivo });
+  const l = [a.t != null && fmtTempo(a.t), a.pace && `${fmtPace(a.pace)} /km`].filter(Boolean).join('   ·   ');
+  relTexto(c, l, REL_M, 1260, { px: 36, peso: 600, cor: REL_COR.muted });
+}
+
+// o formato detalhado monta uma lista de seções e soma as alturas antes de desenhar
+function relSecoesDetalhado(c, a, W) {
+  const gw = W - 2 * REL_M, S = [];
+  const relevo = relRelevo(a), zp = relZonaPrincipal(a);
+  const itens = [
+    a.fcm != null && { rot: 'Batimentos', val: String(a.fcm), un: 'bpm', sub: a.fcx != null ? `máx. ${a.fcx} bpm` : null },
+    a.cad != null && { rot: 'Cadência', val: String(a.cad), un: 'ppm', sub: a.d?.passo_mm ? `passada de ${(a.d.passo_mm / 1000).toFixed(2).replace('.', ',')} m` : null },
+    relevo && { rot: 'Relevo', val: relevo.nome, sub: relevo.sub },
+    a.d?.te != null && { rot: 'Efeito de treino', val: Number(a.d.te).toFixed(1).replace('.', ','), sub: a.d.tea != null ? `anaeróbico ${Number(a.d.tea).toFixed(1).replace('.', ',')}` : null },
+    a.d?.carga != null && { rot: 'Carga', val: String(a.d.carga), sub: 'pico do treino' }
+  ].filter(Boolean);
+  if (itens.length) {
+    const lin = Math.ceil(itens.length / 2), hh = 210;
+    S.push({ h: lin * hh + (lin - 1) * 24, desenhar: (cx, y) => {
+      const lw = (gw - 24) / 2;
+      itens.forEach((it, k) => {
+        const x = REL_M + (k % 2) * (lw + 24), yy = y + Math.floor(k / 2) * (hh + 24);
+        const larg = k === itens.length - 1 && k % 2 === 0 ? gw : lw; // último sozinho na linha ocupa a largura toda
+        relCartao(cx, x, yy, larg, hh, 44);
+        relRotulo(cx, it.rot, x + 34, yy + 54);
+        const w = relTexto(cx, it.val, x + 34, yy + 148, { px: it.un || it.val.length < 6 ? 96 : 70, num: true });
+        if (it.un) relTexto(cx, it.un, x + 34 + w + 8, yy + 148, { px: 28, peso: 600, cor: REL_COR.muted });
+        if (it.sub) relTexto(cx, it.sub, x + 34, yy + 190, { px: 24, peso: 500, cor: REL_COR.muted });
+      });
+    } });
+  }
+  c.font = '500 31px Inter, system-ui, sans-serif';
+  const frases = relTextos(a).map(t => relQuebrar(c, t, gw - 80));
+  if (frases.length) {
+    const nl = frases.reduce((p, q) => p + q.length, 0);
+    S.push({ h: 130 + nl * 44 + (frases.length - 1) * 18, desenhar: (cx, y) => {
+      relCartao(cx, REL_M, y, gw, 130 + nl * 44 + (frases.length - 1) * 18);
+      relTexto(cx, 'Como foi o treino', REL_M + 38, y + 76, { px: 40, peso: 700 });
+      let yy = y + 130;
+      frases.forEach(ls => { ls.forEach(l => { relTexto(cx, l, REL_M + 38, yy, { px: 31, peso: 500, cor: '#D8D8DC' }); yy += 44; }); yy += 18; });
+    } });
+  }
+  const P = a.parciais;
+  if (P.length) {
+    const rh = 96;
+    S.push({ h: 150 + P.length * rh + 30, desenhar: (cx, y) => {
+      relCartao(cx, REL_M, y, gw, 150 + P.length * rh + 30);
+      relTexto(cx, 'Parciais por quilômetro', REL_M + 38, y + 76, { px: 40, peso: 700 });
+      relRotulo(cx, 'km', REL_M + 38, y + 136); relRotulo(cx, 'ritmo', REL_M + 190, y + 136); relRotulo(cx, 'FC', REL_M + gw - 38, y + 136, 'right');
+      const vel = P.map(p => 1 / p.pace), vmax = Math.max(...vel);
+      P.forEach((p, i) => {
+        const yy = y + 150 + i * rh, parcial = p.m < 900;
+        relTexto(cx, parcial ? relKm1(p.m).replace(',0', '') + ' m' : String(i + 1), REL_M + 38, yy + 62, { px: parcial ? 32 : 54, num: !parcial, peso: 600 });
+        relTexto(cx, fmtPace(p.pace), REL_M + 190, yy + 62, { px: 54, num: true });
+        const bx = REL_M + 340, bw = gw - 340 - 38 - 150;
+        rr(cx, bx, yy + 34, bw, 16, 8); cx.fillStyle = 'rgba(255,255,255,.08)'; cx.fill();
+        rr(cx, bx, yy + 34, Math.max(16, (vel[i] / vmax) * bw), 16, 8); cx.fillStyle = vel[i] === vmax ? REL_COR.vivo : 'rgba(255,255,255,.55)'; cx.fill();
+        if (p.fc != null) relTexto(cx, String(p.fc), REL_M + gw - 38, yy + 62, { px: 54, num: true, al: 'right' });
+      });
+    } });
+  }
+  if (a.fcs) {
+    const hz = a.zonas ? 160 : 0;
+    S.push({ h: 150 + 380 + hz + 20, desenhar: (cx, y) => {
+      relCartao(cx, REL_M, y, gw, 150 + 380 + hz + 20);
+      relTexto(cx, 'Batimentos', REL_M + 38, y + 76, { px: 40, peso: 700 });
+      relTexto(cx, 'bpm ao longo do treino · linha tracejada = média', REL_M + 38, y + 116, { px: 26, peso: 500, cor: REL_COR.muted });
+      relGraficoFC(cx, a, REL_M + 30, y + 150, gw - 70, 380);
+      if (a.zonas) { relRotulo(cx, 'Tempo por zona (do relógio)', REL_M + 38, y + 590); relZonas(cx, a, REL_M + 38, y + 616, gw - 76); }
+    } });
+    S[S.length - 1].h += a.zonas ? 60 : 0;
+  }
+  if (a.ritmo.length >= 2) S.push({ h: 470, desenhar: (cx, y) => {
+    relCartao(cx, REL_M, y, gw, 470);
+    relTexto(cx, 'Ritmo a cada 250 m', REL_M + 38, y + 76, { px: 40, peso: 700 });
+    relTexto(cx, 'barra mais alta = mais rápido', REL_M + 38, y + 118, { px: 26, peso: 500, cor: REL_COR.muted });
+    relBarrasRitmo(cx, a, REL_M + 38, y + 124, gw - 76, 330);
+  } });
+  if (a.rota) S.push({ h: 820, desenhar: (cx, y) => {
+    relCartao(cx, REL_M, y, gw, 820);
+    relTexto(cx, 'Percurso', REL_M + 38, y + 76, { px: 40, peso: 700 });
+    relTexto(cx, a.retorno ? `ida de ${relKm1(a.retorno.m)} km e volta de ${relKm1((a.km || 0) * 1000 - a.retorno.m)} km pelo mesmo caminho` : 'trajeto registrado pelo GPS do relógio', REL_M + 38, y + 118, { px: 26, peso: 500, cor: REL_COR.muted });
+    relRota(cx, a, REL_M + 90, y + 190, gw - 180, 560, { esp: 10 });
+  } });
+  if (!a.d) S.push({ h: 190, desenhar: (cx, y) => relAviso(cx, REL_M, y, gw, SEM_DETALHE) });
+  return S;
+}
+
+function relDetalhado(c, a, W) {
+  relCabecalho(c, a, 215);
+  relHero(c, a, 470, 300);
+  relStats(c, relItensBase(a), REL_M, 545, W - 2 * REL_M);
+}
+
+// ---------- montagem ----------
+async function relFontes() {
+  try {
+    await Promise.all(['500 40px Inter', '600 40px Inter', '700 40px Inter', '500 40px "Barlow Condensed"'].map(f => document.fonts.load(f)));
+  } catch { /* usa a fonte do sistema */ }
+}
+
+// desenha o relatório no canvas informado e devolve o formato usado
+function renderizarRelatorio(cv, a, fmt) {
+  const W = fmt.w, medida = document.createElement('canvas').getContext('2d');
+  let H = fmt.h, secoes = null;
+  if (fmt.id === 'detalhado') {
+    secoes = relSecoesDetalhado(medida, a, W);
+    H = 770 + secoes.reduce((p, s) => p + s.h + 28, 0) + 140;
+  }
+  cv.width = W; cv.height = H;
+  const c = cv.getContext('2d');
+  relFundo(c, W, H);
+  if (fmt.id === 'stories') relStories(c, a, W, H);
+  else if (fmt.id === 'feed') relFeed(c, a, W, H);
+  else if (fmt.id === 'poster') relPoster(c, a, W, H);
+  else {
+    relDetalhado(c, a, W);
+    let y = 770;
+    for (const s of secoes) { s.desenhar(c, y); y += s.h + 28; }
+    relTexto(c, `${a.fonte ? 'Dados do relógio · arquivo ' + a.fonte.toUpperCase() + ' · ' : ''}gerado no app Treino`, W / 2, H - 70, { px: 24, peso: 500, cor: REL_COR.muted, al: 'center' });
+  }
+  return { W, H };
+}
+
+function nomeArquivoRelatorio(a, fmt) {
+  const [y, m, d] = partes(a.r.data);
+  return `treino-${fmt.id}-${pad2(d)}-${pad2(m)}-${y}.png`;
+}
+
+async function abrirRelatorioCorrida(r) {
+  const dlg = $('#dlg');
+  const fechar = () => (dlg.close ? dlg.close() : dlg.removeAttribute('open'));
+  const a = analisarCorrida(r);
+  let fmt = REL_FORMATOS[0];
+  const tela = h('canvas', { class: 'rel-tela', role: 'img', 'aria-label': 'Prévia da imagem do relatório' });
+  const botoes = REL_FORMATOS.map(f => h('button', { type: 'button', onclick: () => escolher(f) }, f.nome));
+  const marcar = () => botoes.forEach((b, i) => { const on = REL_FORMATOS[i] === fmt; b.classList.toggle('ativo', on); b.setAttribute('aria-pressed', String(on)); });
+  const blob = () => new Promise(ok => tela.toBlob(ok, 'image/png'));
+  const desenhar = async () => { await relFontes(); renderizarRelatorio(tela, a, fmt); marcar(); };
+  const escolher = f => { fmt = f; desenhar(); };
+  const salvar = async () => {
+    const b = await blob();
+    if (!b) return toast('Não consegui gerar a imagem.', 'erro');
+    const url = URL.createObjectURL(b), link = h('a', { href: url, download: nomeArquivoRelatorio(a, fmt) });
+    document.body.append(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    toast('Imagem baixada');
+  };
+  const compartilhar = async () => {
+    const b = await blob();
+    if (!b) return toast('Não consegui gerar a imagem.', 'erro');
+    const arq = new File([b], nomeArquivoRelatorio(a, fmt), { type: 'image/png' });
+    try { await navigator.share({ files: [arq], title: 'Corrida ' + fmtData(r.data) }); }
+    catch (e) { if (e && e.name !== 'AbortError') toast('Não consegui compartilhar. Use "Salvar imagem".', 'erro'); }
+  };
+  const podeCompartilhar = typeof navigator.canShare === 'function' && typeof navigator.share === 'function'
+    && navigator.canShare({ files: [new File([new Blob(['x'])], 'x.png', { type: 'image/png' })] });
+  dlg.replaceChildren(h('div', null,
+    h('h2', null, 'Relatório da corrida'),
+    h('p', { class: 'muted' }, `${cap(relDataTxt(a))} · ${textoCorrida(r)}`),
+    h('div', { class: 'seg', role: 'group', 'aria-label': 'Formato' }, botoes),
+    h('div', { class: 'acoes' },
+      h('button', { type: 'button', class: 'btn-pri', onclick: salvar }, 'Salvar imagem'),
+      podeCompartilhar && h('button', { type: 'button', onclick: compartilhar }, 'Compartilhar')),
+    a.d ? null : h('p', { class: 'muted' }, 'Sem o detalhe do relógio, o relatório mostra só os totais.'),
+    tela,
+    h('button', { type: 'button', class: 'btn-bloco', onclick: fechar }, 'Fechar')));
+  if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
+  desenhar();
 }
 
 /* ==========================================================================
