@@ -298,7 +298,7 @@ button.link{background:none;border:0;padding:0;min-height:0;color:var(--txt);tex
 #banner-update{padding:8px 8px 8px 18px;border-radius:999px;border:1px solid rgba(255,255,255,.12);display:flex;gap:10px;align-items:center;justify-content:space-between;
   background:rgba(28,28,30,.80);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);border-bottom:1px solid rgba(255,255,255,.12)}
 #banner-update[hidden]{display:none}
-dialog{position:fixed;inset:auto 0 0 0;margin:0 auto;width:100%;max-width:640px;max-height:92vh;overflow:auto;
+dialog{overscroll-behavior:contain;position:fixed;inset:auto 0 0 0;margin:0 auto;width:100%;max-width:640px;max-height:92vh;overflow:auto;
   padding:10px 18px calc(24px + var(--sb));border:0;border-top:1px solid rgba(255,255,255,.14);border-radius:32px 32px 0 0;color:var(--txt);
   background:rgba(28,28,30,.88);-webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%);box-shadow:0 -20px 40px rgba(0,0,0,.45)}
 dialog[open]{animation:folha .38s var(--mola)}
@@ -373,7 +373,7 @@ dialog h2{font-size:24px;letter-spacing:-.03em}
    CONFIGURAÇÃO GERAL
    ========================================================================== */
 const APP_ID = 'treino-pwa';
-const APP_VERSAO = '1.7.3';
+const APP_VERSAO = '1.7.4';
 const CHAVES = {
   plano: 'treino.plano.v1',
   config: 'treino.config.v1',
@@ -3680,6 +3680,51 @@ function reabrirRelatorio(rel) {
   if (rel.k === 'c') { const r = S.registros.find(x => x.tipo === 'corrida' && x.data === rel.data); if (r) abrirRelatorioCorrida(r); }
   else if (rel.k === 'a') { const s = Sessao.finalizadas().find(x => x.id === rel.id); if (s) abrirRelatorioAcademia(s); }
 }
+
+/* ==========================================================================
+   FOLHA ARRASTÁVEL — 1.7.4: puxar a folha para baixo (pela alça ou com a folha no topo) fecha;
+   soltando antes do meio do caminho, ela volta. Vale para todas as folhas do app.
+   ========================================================================== */
+(function gestoFolha() {
+  const dlg = $('#dlg');
+  let y0 = null, dy = 0, t0 = 0, ativo = false;
+  const fechar = () => (dlg.close ? dlg.close() : dlg.removeAttribute('open'));
+  dlg.addEventListener('touchstart', e => {
+    y0 = null;
+    if (!dlg.open || e.touches.length !== 1) return;
+    const t = e.touches[0], r = dlg.getBoundingClientRect();
+    if (dlg.scrollTop > 0 && t.clientY - r.top > 48) return; // no meio de uma folha rolada, o dedo só rola
+    y0 = t.clientY; dy = 0; t0 = Date.now(); ativo = false;
+  }, { passive: true });
+  dlg.addEventListener('touchmove', e => {
+    if (y0 == null) return;
+    dy = e.touches[0].clientY - y0;
+    if (!ativo) {
+      if (dy < -8) { y0 = null; return; }
+      if (dy > 10 && dlg.scrollTop <= 0) ativo = true; else return;
+    }
+    if (e.cancelable) e.preventDefault();
+    dlg.style.animation = 'none'; dlg.style.transition = 'none';
+    dlg.style.transform = `translateY(${Math.max(0, dy)}px)`;
+  }, { passive: false });
+  const soltar = () => {
+    if (y0 == null) return;
+    const rapido = dy / Math.max(1, Date.now() - t0) > 0.6;
+    y0 = null;
+    if (!ativo) return;
+    ativo = false;
+    dlg.style.transition = 'transform .22s ease';
+    if (dy > 110 || rapido) {
+      dlg.style.transform = 'translateY(105%)';
+      setTimeout(() => { dlg.style.transition = ''; dlg.style.transform = ''; dlg.style.animation = ''; fechar(); }, 200);
+    } else {
+      dlg.style.transform = 'translateY(0)';
+      setTimeout(() => { dlg.style.transition = ''; dlg.style.transform = ''; dlg.style.animation = ''; }, 240);
+    }
+  };
+  dlg.addEventListener('touchend', soltar);
+  dlg.addEventListener('touchcancel', soltar);
+})();
 
 /* ==========================================================================
    APP (navegação, inicialização, service worker)
