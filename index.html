@@ -802,7 +802,7 @@ function proximaData(idxDia, aPartirDe) { return somarDias(aPartirDe, (idxDia - 
    TREINO (tela "Hoje" e registro por série)
    ========================================================================== */
 const ehDiaCorrida = d => !!d && d.exercicios.some(x => x.tipo === 'corrida');
-const rotuloDia = d => (ehDiaCorrida(d) ? 'Corrida' : 'Força');
+const rotuloDia = d => (ehDiaCorrida(d) ? 'Corrida' : 'Academia');
 function diaPadrao(data) { // 1.7.0: sem dia da semana. O treino que ainda não foi feito nessa data; se ambos, o feito há mais tempo
   const dias = diasDoPlano();
   if (!dias.length) return null;
@@ -909,7 +909,7 @@ function viewHoje() {
   return els;
 }
 
-// 1.7.0: calendário do mês. Ponto branco = Força, ponto laranja = Corrida (um treino não depende do dia da semana).
+// 1.7.0: calendário do mês. Ponto branco = Academia, ponto laranja = Corrida (um treino não depende do dia da semana).
 // Toque no dia: abre essa data na tela Hoje.
 function marcasDoDia() {
   const m = new Map();
@@ -918,13 +918,13 @@ function marcasDoDia() {
   for (const o of Sessao.finalizadas()) add(o.data, o.dia);
   return m;
 }
-// Tira da semana (seg a dom) da data aberta: ponto branco = Força, laranja = Corrida. Toque abre o dia.
+// Tira da semana (seg a dom) da data aberta: ponto branco = Academia, laranja = Corrida. Toque abre o dia.
 function cardSemana() {
   const hj = hoje(), seg = somarDias(UI.data, -((diaDaSemana(UI.data) + 6) % 7)), marcas = marcasDoDia();
   const cols = [0, 1, 2, 3, 4, 5, 6].map(i => {
     const d = somarDias(seg, i), dw = diaDaSemana(d), mk = marcas.get(d) || new Set();
     return h('button', { type: 'button', class: 'sd' + (d === UI.data ? ' sel' : '') + (d === hj ? ' hoje' : ''),
-      'aria-label': `${NOMES_DIA[dw]}, ${fmtData(d).slice(0, 5)}: ${mk.size ? [mk.has('f') ? 'força' : '', mk.has('c') ? 'corrida' : ''].filter(Boolean).join(' e ') : 'sem treino'}`,
+      'aria-label': `${NOMES_DIA[dw]}, ${fmtData(d).slice(0, 5)}: ${mk.size ? [mk.has('f') ? 'academia' : '', mk.has('c') ? 'corrida' : ''].filter(Boolean).join(' e ') : 'sem treino'}`,
       onclick: () => { UI.data = d; UI.dataManual = d !== hj; UI.diaId = diaPadrao(d); render(); } },
       h('span', null, NOMES_DIA_CURTO[dw].charAt(0).toUpperCase()), h('em', null, String(partes(d)[2])),
       h('i', { class: 'pts' }, mk.has('f') && h('b', { class: 'pf' }), mk.has('c') && h('b', { class: 'pc' })));
@@ -943,7 +943,7 @@ function cardCalendario(irHoje = false) {
   for (let d = 1; d <= nDias; d++) {
     const iso = `${y}-${pad2(mo)}-${pad2(d)}`, mk = marcas.get(iso) || new Set();
     if (mk.has('f')) nF++; if (mk.has('c')) nC++;
-    const rot = `${NOMES_DIA[diaDaSemana(iso)]}, ${d} de ${NOMES_MES[mo - 1]}: ${mk.size ? [mk.has('f') ? 'força' : '', mk.has('c') ? 'corrida' : ''].filter(Boolean).join(' e ') : 'sem treino'}`;
+    const rot = `${NOMES_DIA[diaDaSemana(iso)]}, ${d} de ${NOMES_MES[mo - 1]}: ${mk.size ? [mk.has('f') ? 'academia' : '', mk.has('c') ? 'corrida' : ''].filter(Boolean).join(' e ') : 'sem treino'}`;
     cels.push(h('button', { type: 'button', class: 'cal-d' + (iso === UI.data ? ' sel' : '') + (iso === hj ? ' hoje' : ''), 'aria-label': rot,
       onclick: () => { UI.data = iso; UI.dataManual = iso !== hj; UI.diaId = diaPadrao(iso); UI.calMes = null; if (irHoje) irPara('hoje'); else render(); } },
       h('span', null, String(d)),
@@ -957,7 +957,7 @@ function cardCalendario(irHoje = false) {
       h('button', { type: 'button', class: 'cal-nav', 'aria-label': 'Próximo mês', onclick: () => mover(1) }, '›')),
     h('div', { class: 'cal-sem' }, ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'].map(l => h('span', null, l))),
     h('div', { class: 'cal-grade' }, cels),
-    h('div', { class: 'cal-leg' }, h('span', null, h('b', { class: 'pf' }), `Força ${nF}`), h('span', null, h('b', { class: 'pc' }), `Corrida ${nC}`)));
+    h('div', { class: 'cal-leg' }, h('span', null, h('b', { class: 'pf' }), `Academia ${nF}`), h('span', null, h('b', { class: 'pc' }), `Corrida ${nC}`)));
 }
 // TR-02: a semana anda pelo calendário; depois de uma pausa, oferece voltar para onde parou.
 // M = semana do registro mais recente até a data da tela (o próprio dia conta, para o aviso sumir ao registrar).
