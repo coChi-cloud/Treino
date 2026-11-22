@@ -372,7 +372,7 @@ dialog h2{font-size:24px;letter-spacing:-.03em}
    CONFIGURAÇÃO GERAL
    ========================================================================== */
 const APP_ID = 'treino-pwa';
-const APP_VERSAO = '1.7.1';
+const APP_VERSAO = '1.7.2';
 const CHAVES = {
   plano: 'treino.plano.v1',
   config: 'treino.config.v1',
@@ -3083,6 +3083,8 @@ async function abrirRelatorioCorrida(r) {
   const dlg = $('#dlg');
   const fechar = () => (dlg.close ? dlg.close() : dlg.removeAttribute('open'));
   const a = analisarCorrida(r);
+  UI.relAberto = { k: 'c', data: r.data }; salvarUI();
+  dlg.addEventListener('close', () => { UI.relAberto = null; salvarUI(); }, { once: true });
   const temPainel = !!(a.d && (a.rota || a.parciais.length));
   const formatos = temPainel ? REL_FORMATOS : REL_FORMATOS.filter(f => f.id !== 'painel');
   let fmt = formatos[0], ocupado = false;
@@ -3607,6 +3609,8 @@ async function abrirRelatorioAcademia(sessao) {
   const dlg = $('#dlg');
   const fechar = () => (dlg.close ? dlg.close() : dlg.removeAttribute('open'));
   const A = analisarAcademia(sessao);
+  UI.relAberto = { k: 'a', id: sessao.id }; salvarUI();
+  dlg.addEventListener('close', () => { UI.relAberto = null; salvarUI(); }, { once: true });
   const tela = h('canvas', { class: 'rel-tela', role: 'img', 'aria-label': 'Prévia do relatório da academia' });
   const nome = `wellness-academia-${pad2(partes(sessao.data)[2])}-${pad2(partes(sessao.data)[1])}-${partes(sessao.data)[0]}.png`;
   const blob = () => new Promise(ok => tela.toBlob(ok, 'image/png'));
@@ -3636,12 +3640,45 @@ async function abrirRelatorioAcademia(sessao) {
 }
 
 /* ==========================================================================
+   VOLTAR ONDE ESTAVA — 1.7.2: o Android pode descartar o app em segundo plano (ao compartilhar no
+   Instagram, por exemplo). A tela, o dia, o mês do calendário, a rolagem e o relatório aberto
+   ficam guardados e voltam ao reabrir. Só navegação: nenhum dado do treino passa por aqui.
+   ========================================================================== */
+const CHAVE_UI = 'treino.ui.v1';
+function salvarUI() {
+  try {
+    localStorage.setItem(CHAVE_UI, JSON.stringify({ t: Date.now(), aba: UI.aba, data: UI.dataManual ? UI.data : null, dataManual: !!UI.dataManual,
+      diaId: UI.diaId, histModo: UI.histModo, calMes: UI.calMes, y: Math.round(window.scrollY), rel: UI.relAberto || null }));
+  } catch { /* sem espaço: segue sem guardar */ }
+}
+function lerUI() {
+  try {
+    const o = JSON.parse(localStorage.getItem(CHAVE_UI) || 'null');
+    return o && typeof o === 'object' && Date.now() - o.t < 12 * 3600 * 1000 ? o : null;
+  } catch { return null; }
+}
+function restaurarUI(o) {
+  if (!o) return;
+  if (['hoje', 'historico', 'ajustes'].includes(o.aba)) UI.aba = o.aba;
+  if (o.dataManual && typeof o.data === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(o.data)) { UI.data = o.data; UI.dataManual = true; }
+  UI.diaId = o.diaId && diaPorId(o.diaId) ? o.diaId : diaPadrao(UI.data);
+  if (o.histModo === 'data' || o.histModo === 'ex') UI.histModo = o.histModo;
+  if (o.calMes) UI.calMes = o.calMes;
+}
+function reabrirRelatorio(rel) {
+  if (!rel) return;
+  if (rel.k === 'c') { const r = S.registros.find(x => x.tipo === 'corrida' && x.data === rel.data); if (r) abrirRelatorioCorrida(r); }
+  else if (rel.k === 'a') { const s = Sessao.finalizadas().find(x => x.id === rel.id); if (s) abrirRelatorioAcademia(s); }
+}
+
+/* ==========================================================================
    APP (navegação, inicialização, service worker)
    ========================================================================== */
 function irPara(aba, secao) { UI.aba = aba; UI.secaoAlvo = secao || null; render(false); }
 
 function render(manterScroll = true) {
   const y = window.scrollY;
+  salvarUI();
   let conteudo;
   if (!S.plano) conteudo = viewBoasVindas();
   else if (UI.aba === 'historico') conteudo = viewHistorico();
@@ -3721,6 +3758,10 @@ document.addEventListener('visibilitychange', () => {
     if (v.erros.length) { UI.planoInvalido = v.erros; S.plano = null; }
   }
   UI.diaId = diaPadrao(UI.data);
+  const uiSalva = S.plano ? lerUI() : null;
+  restaurarUI(uiSalva);
+  let tScroll = 0; window.addEventListener('scroll', () => { clearTimeout(tScroll); tScroll = setTimeout(salvarUI, 400); }, { passive: true });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') salvarUI(); });
   document.addEventListener('pointerdown', () => Som.desbloquear(), { passive: true });
   for (const b of document.querySelectorAll('#nav button')) b.addEventListener('click', () => irPara(b.dataset.aba));
   $('#timer .t-parar').addEventListener('click', () => Timer.parar());
@@ -3735,6 +3776,8 @@ document.addEventListener('visibilitychange', () => {
   }
   if (Sessao.emAndamento()) Sessao.rodar(); // sessão em andamento sobrevive a fechar o app e reiniciar o celular
   render(false);
+  if (uiSalva && uiSalva.y > 0) setTimeout(() => window.scrollTo(0, uiSalva.y), 60);
+  if (uiSalva && uiSalva.rel) setTimeout(() => reabrirRelatorio(uiSalva.rel), 120);
   Sessao.verificarEsquecida();
   pedirPersistencia().then(() => { if (UI.aba === 'ajustes') render(); });
   registrarSW();
