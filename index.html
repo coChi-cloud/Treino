@@ -2572,6 +2572,7 @@ function apagarTudo() {
 const MESES_CURTO = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const REL_COR = { fundo: '#070708', txt: '#F5F5F7', muted: '#A1A1A6', vivo: '#FF5A36' };
 const REL_FORMATOS = [
+  { id: 'painel', nome: 'Painel', w: 1080, h: 1920 }, // 1.7.0: o mesmo desenho do vídeo, no último quadro
   { id: 'stories', nome: 'Stories', w: 1080, h: 1920 },
   { id: 'feed', nome: 'Feed', w: 1080, h: 1350 },
   { id: 'poster', nome: 'Pôster', w: 1080, h: 1350 },
@@ -2611,6 +2612,7 @@ function analisarCorrida(r) {
     const d0 = a.dist[i], d1 = a.dist[i + 1];
     return (i + (d1 > d0 ? Math.min(1, Math.max(0, (m - d0) / (d1 - d0))) : 0)) * p;
   };
+  a.tempoEm = tempoEm;
   const fcEntre = (t0, t1) => {
     const v = (d.fc || []).slice(Math.floor(t0 / p), Math.max(Math.floor(t0 / p) + 1, Math.ceil(t1 / p))).filter(ehNum);
     return v.length ? Math.round(v.reduce((x, y) => x + y, 0) / v.length) : null;
@@ -3056,6 +3058,7 @@ function renderizarRelatorio(cv, a, fmt) {
   }
   cv.width = W; cv.height = H;
   const c = cv.getContext('2d');
+  if (fmt.id === 'painel') { quadroPainel(c, a, Infinity); return { W, H }; }
   relFundo(c, W, H);
   if (fmt.id === 'stories') relStories(c, a, W, H);
   else if (fmt.id === 'feed') relFeed(c, a, W, H);
@@ -3078,13 +3081,15 @@ async function abrirRelatorioCorrida(r) {
   const dlg = $('#dlg');
   const fechar = () => (dlg.close ? dlg.close() : dlg.removeAttribute('open'));
   const a = analisarCorrida(r);
-  let fmt = REL_FORMATOS[0];
+  const temPainel = !!(a.d && (a.rota || a.parciais.length));
+  const formatos = temPainel ? REL_FORMATOS : REL_FORMATOS.filter(f => f.id !== 'painel');
+  let fmt = formatos[0], ocupado = false;
   const tela = h('canvas', { class: 'rel-tela', role: 'img', 'aria-label': 'Prévia da imagem do relatório' });
-  const botoes = REL_FORMATOS.map(f => h('button', { type: 'button', onclick: () => escolher(f) }, f.nome));
-  const marcar = () => botoes.forEach((b, i) => { const on = REL_FORMATOS[i] === fmt; b.classList.toggle('ativo', on); b.setAttribute('aria-pressed', String(on)); });
+  const botoes = formatos.map(f => h('button', { type: 'button', onclick: () => escolher(f) }, f.nome));
+  const marcar = () => botoes.forEach((b, i) => { const on = formatos[i] === fmt; b.classList.toggle('ativo', on); b.setAttribute('aria-pressed', String(on)); });
   const blob = () => new Promise(ok => tela.toBlob(ok, 'image/png'));
-  const desenhar = async () => { await relFontes(); renderizarRelatorio(tela, a, fmt); marcar(); };
-  const escolher = f => { fmt = f; desenhar(); };
+  const desenhar = async () => { await relFontes(); renderizarRelatorio(tela, a, fmt); marcar(); btnAnimar.hidden = fmt.id !== 'painel'; };
+  const escolher = f => { if (ocupado) return; fmt = f; video.hidden = true; tela.hidden = false; desenhar(); };
   const salvar = async () => {
     const b = await blob();
     if (!b) return toast('Não consegui gerar a imagem.', 'erro');
@@ -3102,18 +3107,312 @@ async function abrirRelatorioCorrida(r) {
   };
   const podeCompartilhar = typeof navigator.canShare === 'function' && typeof navigator.share === 'function'
     && navigator.canShare({ files: [new File([new Blob(['x'])], 'x.png', { type: 'image/png' })] });
+  // ---- vídeo (Painel) ----
+  const video = h('video', { class: 'rel-tela', controls: true, loop: true, playsinline: true, muted: true }); video.hidden = true;
+  const acoesVideo = h('div', { class: 'acoes' }); acoesVideo.hidden = true;
+  let videoBlob = null, videoUrl = null;
+  const nomeVideo = () => nomeArquivoRelatorio(a, fmt).replace(/\.png$/, videoBlob && /mp4/.test(videoBlob.type) ? '.mp4' : '.webm');
+  const salvarVideo = () => {
+    const link = h('a', { href: videoUrl, download: nomeVideo() });
+    document.body.append(link); link.click(); link.remove();
+    toast('Vídeo baixado');
+  };
+  const compartilharVideo = async () => {
+    const arq = new File([videoBlob], nomeVideo(), { type: videoBlob.type });
+    try { await navigator.share({ files: [arq], title: 'Corrida ' + fmtData(r.data) }); }
+    catch (e) { if (e && e.name !== 'AbortError') toast('Não consegui compartilhar. Use "Salvar vídeo".', 'erro'); }
+  };
+  const btnAnimar = h('button', { type: 'button', onclick: async () => {
+    if (ocupado) return;
+    ocupado = true; btnAnimar.disabled = true; video.hidden = true; acoesVideo.hidden = true; tela.hidden = false;
+    const rotulo = btnAnimar.textContent;
+    try {
+      await relFontes();
+      videoBlob = await gravarPainel(tela, a, p => { btnAnimar.textContent = `Gravando… ${Math.round(p * 100)}%`; });
+      if (videoBlob && videoBlob.size > 1000) {
+        if (videoUrl) URL.revokeObjectURL(videoUrl);
+        videoUrl = URL.createObjectURL(videoBlob);
+        video.src = videoUrl; video.hidden = false; tela.hidden = true; acoesVideo.hidden = false;
+        video.play().catch(() => {});
+        const podeVid = typeof navigator.canShare === 'function' && navigator.canShare({ files: [new File([videoBlob], 'x', { type: videoBlob.type })] });
+        acoesVideo.replaceChildren(h('button', { type: 'button', class: 'btn-pri', onclick: salvarVideo }, 'Salvar vídeo'), podeVid && h('button', { type: 'button', onclick: compartilharVideo }, 'Compartilhar vídeo'));
+      } else toast('Este navegador não grava vídeo. Use "Salvar imagem".', 'erro');
+    } catch (e) { toast('Não consegui gravar o vídeo.', 'erro'); }
+    ocupado = false; btnAnimar.disabled = false; btnAnimar.textContent = rotulo;
+    if (video.hidden) desenhar();
+  } }, 'Animar');
+  btnAnimar.hidden = true;
+  dlg.addEventListener('close', () => { video.pause(); video.removeAttribute('src'); if (videoUrl) URL.revokeObjectURL(videoUrl); }, { once: true });
   dlg.replaceChildren(h('div', null,
     h('h2', null, 'Relatório da corrida'),
     h('p', { class: 'muted' }, `${cap(relDataTxt(a))} · ${textoCorrida(r)}`),
     h('div', { class: 'seg', role: 'group', 'aria-label': 'Formato' }, botoes),
     h('div', { class: 'acoes' },
       h('button', { type: 'button', class: 'btn-pri', onclick: salvar }, 'Salvar imagem'),
-      podeCompartilhar && h('button', { type: 'button', onclick: compartilhar }, 'Compartilhar')),
+      podeCompartilhar && h('button', { type: 'button', onclick: compartilhar }, 'Compartilhar'),
+      btnAnimar),
     a.d ? null : h('p', { class: 'muted' }, 'Sem o detalhe do relógio, o relatório mostra só os totais.'),
-    tela,
+    tela, video, acoesVideo,
     h('button', { type: 'button', class: 'btn-bloco', onclick: fechar }, 'Fechar')));
   if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
   desenhar();
+}
+
+/* ==========================================================================
+   PAINEL AO VIVO — 1.7.0: relatório animado (vídeo) e imagem final no mesmo desenho.
+   Uma função desenha o quadro para qualquer instante t; o PNG é o último quadro,
+   o vídeo é gravado do próprio canvas (MediaRecorder), sem internet.
+   Corrida com GPS: percurso + cartão a cada km. Sem GPS (esteira): barras de ritmo por km.
+   ========================================================================== */
+const pnSuave = t => { const s = t * t * (3 - 2 * t); return 0.35 * t + 0.65 * s; };
+const pnLim = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+function pnMedia(arr, i, r) {
+  let s = 0, n = 0;
+  for (let k = i - r; k <= i + r; k++) { const v = arr[k]; if (ehNum(v)) { s += v; n++; } }
+  return n ? s / n : null;
+}
+const PN_CARTAO = { x: 72, y: 143, w: 936, h: 720 };
+const PN_CHIP = { w: 360, h: 140 };
+
+function prepararPainel(a) {
+  if (a.painel) return a.painel;
+  const d = a.d, n = d.vel.length, p = a.passo, total = a.dist[n];
+  const vSeg = Math.min(3.2, 13 / Math.max(total / 1000, 0.5));
+  const segs = [], marcas = [];
+  for (let k = 1; k * 1000 <= total - 100; k++) marcas.push(k * 1000);
+  let t = 0.5, m = 0;
+  for (const alvo of [...marcas, total]) {
+    const dur = Math.max(1.2, ((alvo - m) / 1000) * vSeg);
+    segs.push({ t0: t, t1: t + dur, m0: m, m1: alvo }); t += dur; m = alvo;
+    if (alvo !== total) { segs.push({ t0: t, t1: t + 1.7, m0: alvo, m1: alvo, km: alvo / 1000 }); t += 1.7; }
+  }
+  const fimCorrida = t;
+  const P = { n, p, total, segs, fimCorrida, duracao: fimCorrida + 4, marcas, kmTotal: Math.max(1, Math.round(total / 1000)) };
+  P.estado = ts => {
+    if (ts >= fimCorrida) return { dm: total, final: true };
+    if (ts < segs[0].t0) return { dm: 0 };
+    const s = segs.find(q => ts >= q.t0 && ts < q.t1) || segs[segs.length - 1];
+    if (s.km) return { dm: s.m0, hold: s.km, k: (ts - s.t0) / (s.t1 - s.t0), ts: ts - s.t0, dur: s.t1 - s.t0 };
+    return { dm: s.m0 + (s.m1 - s.m0) * pnSuave(pnLim((ts - s.t0) / (s.t1 - s.t0), 0, 1)) };
+  };
+  // séries suavizadas, uma por bloco de 5 s
+  P.fc = a.fcs ? a.fcs.map((_, i) => pnMedia(a.fcs, i, 2)) : null;
+  P.pace = d.vel.map((_, i) => { const v = pnMedia(d.vel, i, 6); return v > 30 ? 100000 / v : null; });
+  P.cad = d.cad ? d.cad.map((_, i) => pnMedia(d.cad, i, 3)) : null;
+  const pv = P.pace.filter(ehNum).sort((x, y) => x - y);
+  P.paceLo = pv.length ? Math.max(150, pv[Math.floor(pv.length * 0.04)] - 15) : 240;
+  P.paceHi = pv.length ? Math.min(900, pv[Math.floor(pv.length * 0.96)] + 15) : 520;
+  const fv = P.fc ? P.fc.filter(ehNum) : [];
+  P.fcLo = fv.length ? Math.floor((Math.min(...fv) - 5) / 10) * 10 : 100;
+  P.fcHi = fv.length ? Math.ceil((Math.max(...fv) + 5) / 10) * 10 : 200;
+  P.tempoEm = m => (a.tempoEm ? a.tempoEm(m) : (m / total) * n * p);
+  // percurso: geometria dentro do cartão e distância de cada ponto
+  const R = a.rota;
+  if (R && R.length >= 2) {
+    const bx = PN_CARTAO.x + 46, by = PN_CARTAO.y + 96, bw = PN_CARTAO.w - 92, bh = PN_CARTAO.h - 96 - 46;
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const q of R) { x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
+    const s = Math.min(bw / Math.max(x1 - x0, 1), bh / Math.max(y1 - y0, 1));
+    const ox = bx + (bw - (x1 - x0) * s) / 2, oy = by + (bh - (y1 - y0) * s) / 2;
+    P.pts = R.map(q => [ox + (q.x - x0) * s, oy + (y1 - q.y) * s]);
+    P.D = R.map(q => a.dist[Math.min(q.i, n)]);
+    for (let j = 1; j < P.D.length; j++) if (P.D[j] < P.D[j - 1]) P.D[j] = P.D[j - 1];
+    P.pos = m => {
+      const D = P.D, L = P.pts;
+      if (m <= D[0]) return { x: L[0][0], y: L[0][1], j: 0, f: 0 };
+      let j = 0;
+      while (j < D.length - 2 && D[j + 1] < m) j++;
+      const f = D[j + 1] > D[j] ? pnLim((m - D[j]) / (D[j + 1] - D[j]), 0, 1) : 0;
+      return { x: L[j][0] + (L[j + 1][0] - L[j][0]) * f, y: L[j][1] + (L[j + 1][1] - L[j][1]) * f, j, f };
+    };
+    const fim = P.pts[P.pts.length - 1], perto = (x, y) => Math.hypot(x - fim[0], y - fim[1]) < 58;
+    let arr = total; // metro em que a bolinha chega de vez ao fim (para esconder marcador sobreposto)
+    for (let m2 = total; m2 > 0; m2 -= 5) { const q = P.pos(m2); if (!perto(q.x, q.y)) { arr = m2; break; } }
+    P.arr = arr;
+    P.mk = marcas.map(m2 => { const q = P.pos(m2); return { m: m2, x: q.x, y: q.y, some: perto(q.x, q.y) }; });
+    // canto do cartão do km: o que menos cobre o traço e a bolinha
+    const caixa = { x: PN_CARTAO.x + 20, y: PN_CARTAO.y + 20, w: PN_CARTAO.w - 40, h: PN_CARTAO.h - 40 };
+    const cantos = [[caixa.x + caixa.w - PN_CHIP.w, caixa.y + 66], [caixa.x, caixa.y + 66], [caixa.x + caixa.w - PN_CHIP.w, caixa.y + caixa.h - PN_CHIP.h], [caixa.x, caixa.y + caixa.h - PN_CHIP.h]];
+    P.chipPos = marcas.map(m2 => {
+      const q = P.pos(m2); let melhor = null;
+      cantos.forEach(([cx, cy]) => {
+        let custo = 0;
+        for (let j = 0; j < P.pts.length - 1; j++) for (let u = 0; u < 6; u++) {
+          const x = P.pts[j][0] + (P.pts[j + 1][0] - P.pts[j][0]) * u / 6, y = P.pts[j][1] + (P.pts[j + 1][1] - P.pts[j][1]) * u / 6;
+          if (x > cx - 28 && x < cx + PN_CHIP.w + 28 && y > cy - 28 && y < cy + PN_CHIP.h + 28) custo++;
+        }
+        if (q.x > cx - 50 && q.x < cx + PN_CHIP.w + 50 && q.y > cy - 50 && q.y < cy + PN_CHIP.h + 50) custo += 10000;
+        if (!melhor || custo < melhor.custo) melhor = { custo, cx, cy };
+      });
+      return [melhor.cx, melhor.cy];
+    });
+  }
+  a.painel = P;
+  return P;
+}
+
+function pnSerie(c, vals, x, y, w, h, lo, hi, inv, frac, cor, esp) {
+  const n = vals.length;
+  if (n < 2) return;
+  const X = i => x + (i / (n - 1)) * w, Y = v => y + (inv ? (v - lo) / (hi - lo) : 1 - (v - lo) / (hi - lo)) * h;
+  const tracar = () => {
+    c.beginPath(); let abre = false;
+    vals.forEach((v, i) => { if (!ehNum(v)) { abre = false; return; } const yy = pnLim(Y(v), y - 4, y + h + 4); if (abre) c.lineTo(X(i), yy); else { c.moveTo(X(i), yy); abre = true; } });
+  };
+  c.save(); c.lineJoin = 'round'; c.lineCap = 'round';
+  tracar(); c.lineWidth = esp * 0.7; c.strokeStyle = 'rgba(255,255,255,.17)'; c.stroke();
+  if (frac > 0) {
+    c.beginPath(); c.rect(x - 10, y - 20, w * frac + 10, h + 40); c.clip();
+    tracar(); c.lineWidth = esp; c.strokeStyle = cor; c.stroke();
+  }
+  c.restore();
+}
+
+function pnChip(c, a, P, e, idx) {
+  const par = a.parciais[idx];
+  if (!par) return;
+  const al = pnLim(Math.min(e.ts / 0.25, (e.dur - e.ts) / 0.25), 0, 1), [cx, cy0] = P.chipPos[idx], cy = cy0 + (1 - al) * 14;
+  c.save(); c.globalAlpha = al;
+  rr(c, cx, cy, PN_CHIP.w, PN_CHIP.h, 30); c.fillStyle = 'rgba(10,10,12,.78)'; c.fill();
+  relCartao(c, cx, cy, PN_CHIP.w, PN_CHIP.h, 30);
+  relTexto(c, `KM ${idx + 1}`, cx + 28, cy + 44, { px: 22, peso: 600, cor: REL_COR.muted, ls: 4 });
+  let xx = cx + 28;
+  xx += relTexto(c, fmtPace(par.pace), xx, cy + 112, { px: 70, num: true, cor: REL_COR.vivo }) + 8;
+  xx += relTexto(c, '/km', xx, cy + 112, { px: 26, peso: 500, cor: REL_COR.muted }) + 22;
+  if (par.fc != null) {
+    xx += relTexto(c, String(par.fc), xx, cy + 112, { px: 70, num: true }) + 8;
+    relTexto(c, 'bpm', xx, cy + 112, { px: 26, peso: 500, cor: REL_COR.muted });
+  }
+  c.restore();
+}
+
+function pnPercurso(c, a, P, e, kmAtual) {
+  const pt = P.pts, atual = P.pos(e.dm), sw = 16;
+  relRotulo(c, 'Percurso', PN_CARTAO.x + 32, PN_CARTAO.y + 62);
+  relTexto(c, `KM ${kmAtual} DE ${P.kmTotal}`, PN_CARTAO.x + PN_CARTAO.w - 32, PN_CARTAO.y + 62, { px: 24, peso: 600, cor: REL_COR.txt, ls: 5, al: 'right' });
+  c.save(); c.lineCap = 'round'; c.lineJoin = 'round';
+  const linha = ate => { c.beginPath(); pt.slice(0, ate + 1).forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); };
+  linha(pt.length - 1); c.lineWidth = sw; c.strokeStyle = 'rgba(255,255,255,.14)'; c.stroke();
+  if (e.dm > 0) {
+    const parcial = () => { c.beginPath(); pt.slice(0, atual.j + 1).forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.lineTo(atual.x, atual.y); };
+    c.shadowColor = 'rgba(255,90,54,.85)'; c.shadowBlur = 34; parcial(); c.lineWidth = sw; c.strokeStyle = REL_COR.vivo; c.stroke();
+    c.shadowBlur = 0; parcial(); c.stroke();
+  }
+  c.restore();
+  const [sx, sy] = pt[0];
+  c.beginPath(); c.arc(sx, sy, sw * 1.3, 0, 7); c.fillStyle = '#070708'; c.fill(); c.lineWidth = sw * 0.6; c.strokeStyle = REL_COR.vivo; c.stroke();
+  P.mk.forEach((q, i) => {
+    const al = q.some ? 1 - pnLim((e.dm - P.arr) / 40, 0, 1) : 1;
+    if (al <= 0) return;
+    c.save(); c.globalAlpha = al;
+    c.beginPath(); c.arc(q.x, q.y, sw * 1.6, 0, 7); c.fillStyle = '#070708'; c.fill(); c.lineWidth = 3; c.strokeStyle = '#fff'; c.stroke();
+    relTexto(c, String(i + 1), q.x, q.y + sw * 0.55, { px: sw * 1.5, peso: 600, al: 'center' });
+    c.restore();
+  });
+  c.beginPath(); c.arc(atual.x, atual.y, sw * 1.05, 0, 7);
+  c.save(); c.shadowColor = REL_COR.vivo; c.shadowBlur = 40; c.fillStyle = '#fff'; c.fill(); c.restore();
+  c.beginPath(); c.arc(atual.x, atual.y, sw * 1.05 + sw * 0.25, 0, 7); c.lineWidth = sw * 0.5; c.strokeStyle = 'rgba(255,90,54,.55)'; c.stroke();
+  if (e.hold) pnChip(c, a, P, e, e.hold - 1);
+}
+
+// sem GPS: uma barra por km, que cresce conforme a distância andada
+function pnBarras(c, a, P, e, kmAtual) {
+  const L = a.parciais, X0 = PN_CARTAO.x + 48, W0 = PN_CARTAO.w - 96, base = PN_CARTAO.y + PN_CARTAO.h - 80, topo = PN_CARTAO.y + 150;
+  relRotulo(c, 'Ritmo por km', PN_CARTAO.x + 32, PN_CARTAO.y + 62);
+  relTexto(c, `KM ${kmAtual} DE ${P.kmTotal}`, PN_CARTAO.x + PN_CARTAO.w - 32, PN_CARTAO.y + 62, { px: 24, peso: 600, ls: 5, al: 'right' });
+  if (!L.length) return;
+  const vel = L.map(q => 1 / q.pace), vmax = Math.max(...vel), slot = W0 / L.length, larg = Math.min(slot * 0.62, 150);
+  c.fillStyle = 'rgba(255,255,255,.14)'; c.fillRect(X0, base, W0, 2);
+  let ini = 0;
+  L.forEach((q, i) => {
+    const fim = ini + q.m, prog = pnLim((e.dm - ini) / Math.max(1, q.m), 0, 1), cheio = (vel[i] / vmax) * (base - topo - 30);
+    const hh = Math.max(10, cheio) * pnSuave(prog), bx = X0 + i * slot + (slot - larg) / 2;
+    if (prog > 0) {
+      rr(c, bx, base - hh, larg, hh, 14);
+      const atual = e.dm > ini && e.dm < fim;
+      c.fillStyle = atual || (e.final && vel[i] === vmax) ? REL_COR.vivo : 'rgba(255,255,255,.32)'; c.fill();
+      if (prog >= 1 || e.final) relTexto(c, fmtPace(q.pace), bx + larg / 2, base - hh - 16, { px: 40, num: true, al: 'center' });
+    }
+    relTexto(c, q.m < 900 ? `${Math.round(q.m)} m` : String(i + 1), bx + larg / 2, base + 46, { px: 26, peso: 500, cor: REL_COR.muted, al: 'center' });
+    ini = fim;
+  });
+}
+
+// desenha o quadro do instante ts (segundos), em coordenadas de 1080 × 1920
+function quadroPainel(c, a, ts) {
+  const P = prepararPainel(a), e = P.estado(ts), W = 1080, H = 1920;
+  relFundo(c, W, H);
+  const tt = e.final ? P.n * P.p : P.tempoEm(e.dm), i = pnLim(Math.floor(tt / P.p), 0, P.n - 1);
+  const kmAtual = Math.min(P.kmTotal, Math.floor((Math.max(e.dm, 1) - 1) / 1000) + 1);
+  // cabeçalho
+  c.beginPath(); c.arc(86, 86, 10, 0, 7); c.fillStyle = REL_COR.vivo; c.fill();
+  relTexto(c, 'CORRIDA', 116, 98, { px: 30, peso: 600, ls: 7 });
+  const [y, m, d] = partes(a.r.data), hora = a.r.inicio_relogio ? ' · ' + fmtHora(a.r.inicio_relogio) : '';
+  relTexto(c, `${pad2(d)} ${MESES_CURTO[m - 1].toUpperCase()} ${y}${hora}`, W - 72, 98, { px: 26, peso: 500, cor: REL_COR.muted, ls: 5, al: 'right' });
+  // percurso (ou barras, sem GPS)
+  relCartao(c, PN_CARTAO.x, PN_CARTAO.y, PN_CARTAO.w, PN_CARTAO.h, 52);
+  if (P.pts) pnPercurso(c, a, P, e, kmAtual); else pnBarras(c, a, P, e, kmAtual);
+  // números ao vivo (no fim, viram a média da corrida)
+  const fcAgora = P.fc ? P.fc[i] : null, paceAgora = P.pace[i];
+  const itens = [
+    ['Distância', fmtKm((e.final && a.km ? a.km * 1000 : e.dm) / 1000), 'km'],
+    ['Tempo', fmtTempo(e.final && a.t != null ? a.t : tt), ''],
+    [e.final ? 'Ritmo médio' : 'Ritmo', fmtPace(e.final && a.pace ? a.pace : paceAgora), '/km'],
+    [e.final ? 'FC média' : 'FC', (e.final ? a.fcm : fcAgora) != null ? String(Math.round(e.final ? a.fcm : fcAgora)) : '—', 'bpm']
+  ];
+  itens.forEach(([rot, val, un], k) => {
+    const x = 72 + (k % 2) * 480, yy = 892 + Math.floor(k / 2) * 220;
+    relCartao(c, x, yy, 456, 200, 34);
+    if (k === 3 && !e.final) { const pulso = 1 + 0.35 * Math.sin(ts * 11); c.beginPath(); c.arc(x + 36, yy + 47, 7 * pulso, 0, 7); c.fillStyle = REL_COR.vivo; c.globalAlpha = 1.25 - pulso * 0.55; c.fill(); c.globalAlpha = 1; }
+    relRotulo(c, rot, x + (k === 3 && !e.final ? 58 : 30), yy + 54);
+    const w = relTexto(c, val, x + 30, yy + 168, { px: 128, num: true });
+    if (un) relTexto(c, un, x + 30 + w + 10, yy + 168, { px: 40, peso: 500, cor: REL_COR.muted });
+  });
+  // gráficos que vão aparecendo
+  relCartao(c, 72, 1342, 936, 458, 40);
+  const frac = e.final ? 1 : pnLim(tt / (P.n * P.p), 0, 1);
+  relRotulo(c, 'Frequência cardíaca', 104, 1396);
+  if (P.fc) {
+    relTexto(c, `${fcAgora != null ? Math.round(e.final ? a.fcm ?? fcAgora : fcAgora) : '—'} BPM`, 976, 1396, { px: 26, peso: 600, ls: 3, al: 'right' });
+    pnSerie(c, P.fc, 104, 1430, 872, 130, P.fcLo, P.fcHi, false, frac, REL_COR.vivo, 6);
+  }
+  relRotulo(c, 'Ritmo', 104, 1618);
+  relTexto(c, `${fmtPace(e.final && a.pace ? a.pace : paceAgora)} /KM`, 976, 1618, { px: 26, peso: 600, ls: 3, al: 'right' });
+  pnSerie(c, P.pace, 104, 1652, 872, 120, P.paceLo, P.paceHi, true, frac, '#FFFFFF', 5);
+}
+
+function pnMime() {
+  if (typeof MediaRecorder === 'undefined' || typeof HTMLCanvasElement.prototype.captureStream !== 'function') return null;
+  return ['video/mp4;codecs=avc1.42E01E', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find(t => MediaRecorder.isTypeSupported(t)) || null;
+}
+// reproduz a animação no canvas e grava; devolve o vídeo (ou null se o navegador não grava)
+async function gravarPainel(cv, a, aoProgresso) {
+  const P = prepararPainel(a), mime = pnMime();
+  cv.width = 720; cv.height = 1280;
+  const c = cv.getContext('2d');
+  let rec = null, fluxo = null; const partes = [];
+  if (mime) {
+    fluxo = cv.captureStream(30);
+    rec = new MediaRecorder(fluxo, { mimeType: mime, videoBitsPerSecond: 6000000 });
+    rec.ondataavailable = ev => { if (ev.data && ev.data.size) partes.push(ev.data); };
+    rec.start(250);
+  }
+  const t0 = performance.now(), dur = P.duracao + 0.5;
+  await new Promise(ok => {
+    const passo = () => {
+      const t = (performance.now() - t0) / 1000;
+      c.setTransform(720 / 1080, 0, 0, 720 / 1080, 0, 0);
+      quadroPainel(c, a, Math.min(t, P.duracao));
+      if (aoProgresso) aoProgresso(Math.min(1, t / dur));
+      if (t < dur) requestAnimationFrame(passo); else ok();
+    };
+    requestAnimationFrame(passo);
+  });
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  if (!rec) return null;
+  await new Promise(ok => { rec.onstop = ok; rec.stop(); });
+  fluxo.getTracks().forEach(tr => tr.stop());
+  return new Blob(partes, { type: mime.split(';')[0] });
 }
 
 /* ==========================================================================
