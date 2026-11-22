@@ -1,9 +1,9 @@
 /* Service worker do app Treino
    - Guarda os arquivos do app no cache para funcionar offline.
    - IMPORTANTE: ao publicar qualquer mudança no app, troque VERSAO abaixo
-     (ex.: 'treino-v1.7.0'). É assim que o celular percebe a atualização.
+     (ex.: 'treino-v1.7.1'). É assim que o celular percebe a atualização.
    - A versão nova se ativa sozinha; o app recarrega quando não há treino em andamento. */
-const VERSAO = 'treino-v1.7.0';
+const VERSAO = 'treino-v1.7.1';
 const ARQUIVOS = ['./', './index.html', './manifest.json', './icone-192.png', './icone-512.png'];
 
 self.addEventListener('install', evento => {

@@ -372,7 +372,7 @@ dialog h2{font-size:24px;letter-spacing:-.03em}
    CONFIGURAÇÃO GERAL
    ========================================================================== */
 const APP_ID = 'treino-pwa';
-const APP_VERSAO = '1.7.0';
+const APP_VERSAO = '1.7.1';
 const CHAVES = {
   plano: 'treino.plano.v1',
   config: 'treino.config.v1',
@@ -3130,7 +3130,9 @@ async function abrirRelatorioCorrida(r) {
     const rotulo = btnAnimar.textContent;
     try {
       await relFontes();
-      videoBlob = await gravarPainel(tela, a, p => { btnAnimar.textContent = `Gravando… ${Math.round(p * 100)}%`; });
+      const prog = p => { btnAnimar.textContent = `Gravando… ${Math.round(p * 100)}%`; };
+      try { videoBlob = await gravarPainelMp4(tela, a, prog); } catch { videoBlob = null; }
+      if (!videoBlob) videoBlob = await gravarPainel(tela, a, prog); // plano B: gravação em tempo real do navegador
       if (videoBlob && videoBlob.size > 1000) {
         if (videoUrl) URL.revokeObjectURL(videoUrl);
         videoUrl = URL.createObjectURL(videoBlob);
@@ -3387,6 +3389,75 @@ function pnMime() {
   if (typeof MediaRecorder === 'undefined' || typeof HTMLCanvasElement.prototype.captureStream !== 'function') return null;
   return ['video/mp4;codecs=avc1.42E01E', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find(t => MediaRecorder.isTypeSupported(t)) || null;
 }
+// ---------- MP4 próprio (WebCodecs + muxer mínimo): vídeo com duração correta, aceito pelo Instagram ----------
+function mp4Caixa(tipo, ...partes) {
+  const corpo = partes.map(p => (p instanceof Uint8Array ? p : new Uint8Array(p)));
+  const tam = 8 + corpo.reduce((s, p) => s + p.length, 0), out = new Uint8Array(tam), dv = new DataView(out.buffer);
+  dv.setUint32(0, tam); for (let i = 0; i < 4; i++) out[4 + i] = tipo.charCodeAt(i);
+  let o = 8; for (const p of corpo) { out.set(p, o); o += p.length; }
+  return out;
+}
+const mp4U32 = (...v) => { const b = new Uint8Array(v.length * 4), dv = new DataView(b.buffer); v.forEach((x, i) => dv.setUint32(i * 4, x >>> 0)); return b; };
+const mp4U16 = (...v) => { const b = new Uint8Array(v.length * 2), dv = new DataView(b.buffer); v.forEach((x, i) => dv.setUint16(i * 2, x)); return b; };
+const mp4Zeros = n => new Uint8Array(n);
+function montarMp4({ w, h, fps, avcC, amostras }) {
+  const esc = 1000 * fps, delta = 1000, n = amostras.length, durMs = Math.round((n / fps) * 1000), durMedia = n * delta;
+  const matriz = new Uint8Array([0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x40, 0, 0, 0]);
+  const ftyp = mp4Caixa('ftyp', new TextEncoder().encode('isom'), mp4U32(512), new TextEncoder().encode('isomiso2avc1mp41'));
+  const moovCom = offset => {
+    const nome = new TextEncoder().encode('Wellness\0');
+    const stsd = mp4Caixa('stsd', mp4U32(0, 1), mp4Caixa('avc1', mp4Zeros(6), mp4U16(1), mp4Zeros(16), mp4U16(w, h), mp4U32(0x00480000, 0x00480000, 0), mp4U16(1), mp4Zeros(32), mp4U16(0x18, 0xffff), mp4Caixa('avcC', avcC)));
+    const chaves = amostras.map((a, i) => (a.key ? i + 1 : 0)).filter(Boolean);
+    const stbl = mp4Caixa('stbl', stsd, mp4Caixa('stts', mp4U32(0, 1, n, delta)), mp4Caixa('stss', mp4U32(0, chaves.length, ...chaves)),
+      mp4Caixa('stsc', mp4U32(0, 1, 1, n, 1)), mp4Caixa('stsz', mp4U32(0, 0, n, ...amostras.map(a => a.data.length))), mp4Caixa('stco', mp4U32(0, 1, offset)));
+    const minf = mp4Caixa('minf', mp4Caixa('vmhd', mp4U32(1), mp4Zeros(8)), mp4Caixa('dinf', mp4Caixa('dref', mp4U32(0, 1), mp4Caixa('url ', mp4U32(1)))), stbl);
+    const mdia = mp4Caixa('mdia', mp4Caixa('mdhd', mp4U32(0, 0, 0, esc, durMedia), mp4U16(0x55c4, 0)),
+      mp4Caixa('hdlr', mp4U32(0, 0), new TextEncoder().encode('vide'), mp4Zeros(12), nome), minf);
+    const tkhd = mp4Caixa('tkhd', mp4U32(3, 0, 0, 1, 0, durMs), mp4Zeros(8), mp4U16(0, 0, 0, 0), matriz, mp4U32(w << 16, h << 16));
+    const trak = mp4Caixa('trak', tkhd, mdia);
+    const mvhd = mp4Caixa('mvhd', mp4U32(0, 0, 0, 1000, durMs, 0x00010000), mp4U16(0x0100, 0), mp4Zeros(8), matriz, mp4Zeros(24), mp4U32(2));
+    return mp4Caixa('moov', mvhd, trak);
+  };
+  const tamMoov = moovCom(0).length, inicio = ftyp.length + tamMoov + 8;
+  const moov = moovCom(inicio);
+  const total = amostras.reduce((s, a) => s + a.data.length, 0), mdat = new Uint8Array(8 + total), dv = new DataView(mdat.buffer);
+  dv.setUint32(0, 8 + total); mdat.set([0x6d, 0x64, 0x61, 0x74], 4);
+  let o = 8; for (const a of amostras) { mdat.set(a.data, o); o += a.data.length; }
+  return new Blob([ftyp, moov, mdat], { type: 'video/mp4' });
+}
+
+async function gravarPainelMp4(cv, a, aoProgresso) {
+  if (typeof VideoEncoder === 'undefined' || typeof VideoFrame === 'undefined') return null;
+  const w = 720, h = 1280, fps = 30, P = prepararPainel(a);
+  let cfg = null;
+  for (const codec of ['avc1.640028', 'avc1.4d0028', 'avc1.42002a', 'avc1.42001f']) {
+    const c = { codec, width: w, height: h, bitrate: 6000000, framerate: fps, avc: { format: 'avc' }, latencyMode: 'quality' };
+    try { const r = await VideoEncoder.isConfigSupported(c); if (r.supported) { cfg = r.config || c; break; } } catch { /* tenta o próximo */ }
+  }
+  if (!cfg) return null;
+  cv.width = w; cv.height = h;
+  const c = cv.getContext('2d'), amostras = []; let avcC = null, erro = null;
+  const enc = new VideoEncoder({
+    output: (ch, meta) => { const d = new Uint8Array(ch.byteLength); ch.copyTo(d); if (meta && meta.decoderConfig && meta.decoderConfig.description) avcC = new Uint8Array(meta.decoderConfig.description.buffer ? meta.decoderConfig.description : meta.decoderConfig.description); amostras.push({ data: d, key: ch.type === 'key' }); },
+    error: e => { erro = e; }
+  });
+  enc.configure(cfg);
+  const dur = P.duracao + 0.5, total = Math.round(dur * fps);
+  for (let i = 0; i < total; i++) {
+    if (erro) throw erro;
+    c.setTransform(w / 1080, 0, 0, w / 1080, 0, 0);
+    quadroPainel(c, a, Math.min(i / fps, P.duracao));
+    const q = new VideoFrame(cv, { timestamp: Math.round((i * 1e6) / fps), duration: Math.round(1e6 / fps) });
+    enc.encode(q, { keyFrame: i % 30 === 0 }); q.close();
+    while (enc.encodeQueueSize > 6) await new Promise(r => setTimeout(r, 4));
+    if (i % 3 === 0) { if (aoProgresso) aoProgresso(i / total); await new Promise(r => setTimeout(r, 0)); }
+  }
+  await enc.flush(); enc.close();
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  if (erro || !avcC || !amostras.length) return null;
+  return montarMp4({ w, h, fps, avcC, amostras });
+}
+
 // reproduz a animação no canvas e grava; devolve o vídeo (ou null se o navegador não grava)
 async function gravarPainel(cv, a, aoProgresso) {
   const P = prepararPainel(a), mime = pnMime();
