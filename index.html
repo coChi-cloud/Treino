@@ -139,6 +139,7 @@ details[open]>summary::before{transform:rotate(45deg)}
 .cal-d.sel{background:var(--txt);color:#0A0A0B}
 .cal-d .pts{display:flex;gap:4px;height:7px;font-style:normal}
 .pf,.pc{display:inline-block;width:7px;height:7px;border-radius:50%}
+.realce{animation:realce 1.5s ease-out}@keyframes realce{0%{box-shadow:0 0 0 2px var(--vivo),0 0 28px rgba(255,90,54,.45)}100%{box-shadow:0 0 0 0 transparent}}
 .pf{background:#fff}.pc{background:#FF5A36}
 .cal-d.sel .pf{background:#0A0A0B}
 .cal-leg{display:flex;gap:18px;justify-content:center;margin-top:10px;font-size:13px;color:var(--muted2)}
@@ -372,7 +373,7 @@ dialog h2{font-size:24px;letter-spacing:-.03em}
    CONFIGURAÇÃO GERAL
    ========================================================================== */
 const APP_ID = 'treino-pwa';
-const APP_VERSAO = '1.7.2';
+const APP_VERSAO = '1.7.3';
 const CHAVES = {
   plano: 'treino.plano.v1',
   config: 'treino.config.v1',
@@ -499,7 +500,7 @@ const UI = {
   histModo: 'data', histEx: null,
   avisosImport: null, planoInvalido: null, erroGravacao: false,
   persistido: undefined, swReg: null, swEsperando: null, atualizando: false,
-  secaoAlvo: null, calMes: null,
+  secaoAlvo: null, calMes: null, histDia: null,
   rolarProximo: false,
   editCorrida: null,        // 1.4.0: "data|dia" da corrida aberta para edição
   importCorrida: null,      // 1.4.0: arquivo do relógio lido para outra data, aplicado depois de trocar a data      // 1.3.3: depois do render, rola até o próximo exercício pendente
@@ -944,8 +945,17 @@ function cardCalendario(irHoje = false) {
     const iso = `${y}-${pad2(mo)}-${pad2(d)}`, mk = marcas.get(iso) || new Set();
     if (mk.has('f')) nF++; if (mk.has('c')) nC++;
     const rot = `${NOMES_DIA[diaDaSemana(iso)]}, ${d} de ${NOMES_MES[mo - 1]}: ${mk.size ? [mk.has('f') ? 'academia' : '', mk.has('c') ? 'corrida' : ''].filter(Boolean).join(' e ') : 'sem treino'}`;
-    cels.push(h('button', { type: 'button', class: 'cal-d' + (iso === UI.data ? ' sel' : '') + (iso === hj ? ' hoje' : ''), 'aria-label': rot,
-      onclick: () => { UI.data = iso; UI.dataManual = iso !== hj; UI.diaId = diaPadrao(iso); UI.calMes = null; if (irHoje) irPara('hoje'); else render(); } },
+    cels.push(h('button', { type: 'button', class: 'cal-d' + (iso === (irHoje ? UI.histDia : UI.data) ? ' sel' : '') + (iso === hj ? ' hoje' : ''), 'aria-label': rot,
+      onclick: () => {
+        if (irHoje) { // no Histórico: fica no Histórico e mostra o treino daquele dia (1.7.3)
+          UI.histDia = iso; UI.calMes = `${y}-${pad2(mo)}`; render();
+          const alvo = document.querySelector(`#main [data-data="${iso}"]`);
+          if (alvo) { alvo.scrollIntoView({ block: 'start', behavior: 'smooth' }); alvo.classList.add('realce'); setTimeout(() => alvo.classList.remove('realce'), 1600); }
+          else toast('Sem treino registrado neste dia');
+          return;
+        }
+        UI.data = iso; UI.dataManual = iso !== hj; UI.diaId = diaPadrao(iso); UI.calMes = null; render();
+      } },
       h('span', null, String(d)),
       h('i', { class: 'pts' }, mk.has('f') && h('b', { class: 'pf' }), mk.has('c') && h('b', { class: 'pc' }))));
   }
@@ -2235,7 +2245,7 @@ function histPorData() {
     const semanas = [...new Set([...regs, ...sess].map(r => r.semana))].join('/');
     const cors = regs.filter(r => r.tipo === 'corrida'), series = regs.filter(r => r.tipo !== 'corrida');
     const porEx = agrupar(series, r => r.exercicio).sort(([a], [b]) => ordem(a) - ordem(b));
-    return h('section', { class: 'card' },
+    return h('section', { class: 'card', 'data-data': data },
       h('h3', null, `${cap(NOMES_DIA_CURTO[diaDaSemana(data)])}, ${fmtData(data)}`),
       h('p', { class: 'muted' }, `${dia ? dia.nome : 'Dia ' + diaId} · semana ${semanas} · ${series.length} série${series.length !== 1 ? 's' : ''}${cors.length ? ' · corrida' : ''}`),
       sess.map(blocoSessaoHist),
